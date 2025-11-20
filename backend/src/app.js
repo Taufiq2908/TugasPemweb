@@ -24,6 +24,14 @@ app.get("/test-firestore", async (req, res) => {
     }
 });
 
+// Import Routes *** (PINDAHKAN KE ATAS, DI SINI) ***
+const authRoutes = require("./routes/authRoutes");
+app.use("/auth", authRoutes);
+
+const cityRoutes = require("./routes/cityRoutes");
+app.use("/cities", cityRoutes);
+
+
 // Route default
 app.get("/", (req, res) => {
     res.send("Makan Ki Backend API is running...");
