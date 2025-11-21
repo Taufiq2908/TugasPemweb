@@ -1,4 +1,21 @@
-const db = require("../firebase/firebase");
+const supabase = require("../supabase/supabaseClient");
+
+// Helper hitung jarak (Haversine) dalam kilometer
+function getDistanceKm(lat1, lon1, lat2, lon2) {
+  const R = 6371; // radius bumi km
+  const toRad = (deg) => (deg * Math.PI) / 180;
+
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
 
 // =========================
 // CREATE CITY
@@ -11,15 +28,27 @@ exports.addCity = async (req, res) => {
       return res.status(400).json({ message: "Nama kota wajib diisi." });
     }
 
-    const newCity = await db.collection("cities").add({
-      name,
-      lat: lat || null,
-      lon: lon || null,
-      createdAt: new Date()
-    });
+    const { data, error } = await supabase
+      .from("cities")
+      .insert([
+        {
+          name,
+          lat: lat ?? null,
+          lon: lon ?? null,
+          created_at: new Date().toISOString()
+        }
+      ])
+      .select()
+      .single();
 
-    res.json({ id: newCity.id, name, lat, lon });
+    if (error) {
+      console.error(error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.status(201).json(data);
   } catch (err) {
+    console.error("addCity error:", err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -29,14 +58,19 @@ exports.addCity = async (req, res) => {
 // =========================
 exports.getCities = async (req, res) => {
   try {
-    const snapshot = await db.collection("cities").orderBy("name").get();
-    const cities = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    const { data, error } = await supabase
+      .from("cities")
+      .select("*")
+      .order("name", { ascending: true });
 
-    res.json(cities);
+    if (error) {
+      console.error(error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.json(data || []);
   } catch (err) {
+    console.error("getCities error:", err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -48,14 +82,20 @@ exports.getCityById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const cityDoc = await db.collection("cities").doc(id).get();
+    const { data, error } = await supabase
+      .from("cities")
+      .select("*")
+      .eq("id", id)
+      .single();
 
-    if (!cityDoc.exists) {
+    if (error) {
+      console.error(error);
       return res.status(404).json({ message: "Kota tidak ditemukan." });
     }
 
-    res.json({ id: cityDoc.id, ...cityDoc.data() });
+    return res.json(data);
   } catch (err) {
+    console.error("getCityById error:", err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -68,21 +108,29 @@ exports.updateCity = async (req, res) => {
     const { id } = req.params;
     const { name, lat, lon } = req.body;
 
-    const cityRef = db.collection("cities").doc(id);
-    const cityDoc = await cityRef.get();
+    const { data, error } = await supabase
+      .from("cities")
+      .update({
+        ...(name !== undefined && { name }),
+        ...(lat !== undefined && { lat }),
+        ...(lon !== undefined && { lon })
+      })
+      .eq("id", id)
+      .select()
+      .single();
 
-    if (!cityDoc.exists) {
+    if (error) {
+      console.error(error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    if (!data) {
       return res.status(404).json({ message: "Kota tidak ditemukan." });
     }
 
-    await cityRef.update({
-      name,
-      lat: lat || null,
-      lon: lon || null
-    });
-
-    res.json({ message: "Kota berhasil diperbarui." });
+    return res.json(data);
   } catch (err) {
+    console.error("updateCity error:", err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -94,30 +142,19 @@ exports.deleteCity = async (req, res) => {
   try {
     const { id } = req.params;
 
-    await db.collection("cities").doc(id).delete();
+    const { error } = await supabase.from("cities").delete().eq("id", id);
 
-    res.json({ message: "Kota berhasil dihapus." });
+    if (error) {
+      console.error(error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.json({ message: "Kota berhasil dihapus." });
   } catch (err) {
+    console.error("deleteCity error:", err);
     res.status(500).json({ error: err.message });
   }
 };
-
-// =========================
-// DISTANCE HELPERS
-// =========================
-function getDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371; // radius bumi (km)
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1 * Math.PI / 180) *
-    Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon / 2) ** 2;
-
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c; // km
-}
 
 // =========================
 // DETECT NEARBY CITY
@@ -127,50 +164,60 @@ exports.detectNearbyCity = async (req, res) => {
     const { lat, lon } = req.query;
 
     if (!lat || !lon) {
-      return res.status(400).json({ message: "lat & lon diperlukan." });
+      return res
+        .status(400)
+        .json({ message: "lat dan lon query parameter wajib diisi." });
     }
 
-    const snapshot = await db.collection("cities").get();
-    const cities = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    const userLat = parseFloat(lat);
+    const userLon = parseFloat(lon);
+
+    const { data: cities, error } = await supabase
+      .from("cities")
+      .select("*");
+
+      console.log("DEBUG CITIES:", cities);
+
+    if (error) {
+      console.error(error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    if (!cities || cities.length === 0) {
+      return res.json({ found: false });
+    }
 
     let nearestCity = null;
     let nearestDist = Infinity;
 
-    cities.forEach(city => {
-      if (city.lat == null || city.lon == null) return;
+    for (const city of cities) {
+      if (city.lat == null || city.lon == null) continue;
 
-      const dist = getDistance(
-        parseFloat(lat),
-        parseFloat(lon),
-        city.lat,
-        city.lon
+      const dist = getDistanceKm(
+        userLat,
+        userLon,
+        parseFloat(city.lat),
+        parseFloat(city.lon)
       );
 
       if (dist < nearestDist) {
         nearestDist = dist;
         nearestCity = city;
       }
-    });
+    }
 
     if (!nearestCity) {
       return res.json({ found: false });
     }
 
-    if (nearestDist <= 50) {
-      return res.json({
-        found: true,
-        city: nearestCity.name,
-        id: nearestCity.id,
-        distanceKm: nearestDist
-      });
-    }
-
-    return res.json({ found: false });
-
+    return res.json({
+      found: true,
+      city: nearestCity.name,
+      id: nearestCity.id,
+      distanceKm: nearestDist
+    });
   } catch (err) {
+    console.error("detectNearbyCity error:", err);
     res.status(500).json({ error: err.message });
   }
 };

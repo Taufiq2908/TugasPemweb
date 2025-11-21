@@ -1,20 +1,17 @@
 const express = require("express");
-const {
-  addCity,
-  getCities,
-  getCityById,
-  updateCity,
-  deleteCity,
-  detectNearbyCity
-} = require("../controllers/cityController");
-
 const router = express.Router();
+const controller = require("../controllers/cityController");
 
-router.post("/", addCity);
-router.get("/", getCities);
-router.get("/near", detectNearbyCity);
-router.get("/:id", getCityById);
-router.put("/:id", updateCity);
-router.delete("/:id", deleteCity);
+// ❗ TARUH INI PALING ATAS
+router.get("/detect-nearby", controller.detectNearbyCity);
+
+// ROUTE BIASA
+router.get("/", controller.getCities);
+router.post("/", controller.addCity);
+
+// ❗ TARUH /:id PALING BAWAH
+router.get("/:id", controller.getCityById);
+router.put("/:id", controller.updateCity);
+router.delete("/:id", controller.deleteCity);
 
 module.exports = router;
