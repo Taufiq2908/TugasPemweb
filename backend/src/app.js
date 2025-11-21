@@ -18,6 +18,17 @@ const userRoutes = require("./routes/userRoutes");
 app.use("/auth", authRoutes);
 app.use("/cities", cityRoutes);
 app.use("/users", userRoutes);
+app.use("/places", require("./routes/placeRoutes"));
+app.use("/categories", require("./routes/categoryRoutes"));
+app.use("/reviews", require("./routes/reviewRoutes"));
+app.use("/wishlists", require("./routes/wishlistRoutes"));
+app.use("/smart-search", require("./routes/smartSearchRoutes"));
+app.use("/places", require("./routes/placeSearchRoutes"));
+app.use("/users", require("./routes/userLocationRoutes"));
+app.use("/reviews", require("./routes/reviewLikeRoutes"));
+app.use("/users", require("./routes/userProfileRoutes"));
+app.use("/maps", require("./routes/mapRoutes"));
+
 
 // Route default
 app.get("/", (req, res) => {

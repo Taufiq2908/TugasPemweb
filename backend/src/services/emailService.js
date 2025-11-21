@@ -140,8 +140,19 @@ async function sendResetPasswordEmail(email, token) {
     html
   });
 }
+// GENERIC EMAIL FUNCTION (dipakai untuk wishlist reminder, dsb.)
+async function sendEmail(to, subject, html) {
+  await transporter.sendMail({
+    from: `"Makan Ki'" <${process.env.EMAIL_USER}>`,
+    to,
+    subject,
+    html
+  });
+}
 
 module.exports = {
   sendVerificationEmail,
-  sendResetPasswordEmail
+  sendResetPasswordEmail,
+  sendEmail     // <--- tambahkan ini
 };
+
