@@ -1,17 +1,14 @@
-const { createClient } = require("@supabase/supabase-js");
+require('dotenv').config();
+const { createClient } = require('@supabase/supabase-js');
 
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.SUPABASE_SERVICE_KEY ||
-  process.env.SUPABASE_SECRET_KEY;
+const supabaseKey = process.env.SUPABASE_KEY;
 
-if (!supabaseUrl || !supabaseServiceKey) {
-  console.warn(
-    "[Supabase] SUPABASE_URL atau SERVICE_ROLE_KEY belum diset di file .env"
-  );
+// Cek apakah key terbaca
+if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Supabase URL atau Key tidak ditemukan di file .env');
 }
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 module.exports = supabase;

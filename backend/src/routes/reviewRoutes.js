@@ -9,6 +9,6 @@ router.get("/place/:id", controller.getReviewsByPlace);
 router.post("/", controller.addReview);
 
 // PATCH like review
-router.patch("/:id/like", controller.likeReview);
+//router.patch("/:id/like", controller.likeReview);
 
 module.exports = router;
