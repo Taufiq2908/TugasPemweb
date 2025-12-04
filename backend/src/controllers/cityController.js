@@ -176,8 +176,6 @@ exports.detectNearbyCity = async (req, res) => {
       .from("cities")
       .select("*");
 
-      console.log("DEBUG CITIES:", cities);
-
     if (error) {
       console.error(error);
       return res.status(500).json({ error: error.message });

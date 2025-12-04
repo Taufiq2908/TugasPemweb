@@ -93,6 +93,9 @@ exports.registerUser = async (req, res) => {
 // =========================
 // VERIFY EMAIL
 // =========================
+// =========================
+// VERIFY EMAIL + AUTO LOGIN
+// =========================
 exports.verifyEmail = async (req, res) => {
   try {
     const { token } = req.query;
@@ -101,6 +104,7 @@ exports.verifyEmail = async (req, res) => {
       return res.status(400).json({ message: "Token verifikasi tidak ada." });
     }
 
+    // Cari user berdasarkan token
     const { data: user, error } = await supabase
       .from("users")
       .select("*")
@@ -113,6 +117,7 @@ exports.verifyEmail = async (req, res) => {
         .json({ message: "Token verifikasi tidak valid atau sudah digunakan." });
     }
 
+    // Update user → set email verified
     const { error: updateError } = await supabase
       .from("users")
       .update({
@@ -126,12 +131,24 @@ exports.verifyEmail = async (req, res) => {
       return res.status(500).json({ error: updateError.message });
     }
 
-    return res.json({ message: "Email berhasil diverifikasi. Silakan login." });
+    // 🔥 BUAT JWT TOKEN AUTO LOGIN
+    const jwtToken = jwt.sign(
+      { id: user.id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    // 🔥 REDIRECT KE HALAMAN FRONTEND DENGAN TOKEN LOGIN
+    const redirectUrl = `http://localhost:5173/?token=${jwtToken}`;
+
+    return res.redirect(redirectUrl);
+
   } catch (err) {
     console.error("verifyEmail error:", err);
     res.status(500).json({ error: err.message });
   }
 };
+
 
 // =========================
 // LOGIN USER

@@ -24,8 +24,13 @@ app.use(express.static(path.join(__dirname, '../public')));
 const authRoutes = require("./routes/authRoutes");
 const cityRoutes = require("./routes/cityRoutes");
 const userRoutes = require("./routes/userRoutes");
+<<<<<<< HEAD
 
 // Prefix route API
+=======
+const chatbotRoutes = require("./routes/chatbot.routes");
+// Prefix route
+>>>>>>> 29f3e0e (update : chatbot fix)
 app.use("/auth", authRoutes);
 app.use("/cities", cityRoutes);
 app.use("/users", userRoutes);
@@ -39,7 +44,7 @@ app.use("/users", require("./routes/userLocationRoutes"));
 app.use("/reviews", require("./routes/reviewLikeRoutes"));
 app.use("/users", require("./routes/userProfileRoutes"));
 app.use("/maps", require("./routes/mapRoutes"));
-
+app.use("/api", chatbotRoutes);
 
 // --- IMPORT ROUTES WEB (PUNYA KAMU) ---
 // Pastikan kamu sudah buat file src/routes/viewRoutes.js seperti panduan sebelumnya
