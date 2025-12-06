@@ -1,6 +1,5 @@
 // File: src/services/mockData.js
 
-// --- DATA RESTORAN ---
 export const RESTAURANTS = [
   // Makassar
   {
@@ -15,7 +14,8 @@ export const RESTAURANTS = [
     imageUrl: 'https://picsum.photos/800/600?random=1',
     address: 'Jl. Nusantara No. 32, Makassar',
     coordinates: { lat: -5.147665, lng: 119.432731 },
-    openHours: '08:00 - 22:00'
+    openHours: '08:00 - 22:00',
+    facilities: ['Parkir Luas', 'AC', 'Toilet Bersih']
   },
   {
     id: 'mks-2',
@@ -29,7 +29,8 @@ export const RESTAURANTS = [
     imageUrl: 'https://picsum.photos/800/600?random=2',
     address: 'Jl. Serigala No. 54, Makassar',
     coordinates: { lat: -5.1587, lng: 119.4156 },
-    openHours: '09:00 - 21:00'
+    openHours: '09:00 - 21:00',
+    facilities: ['Outdoor', 'Parkir Luas']
   },
   // Jakarta
   {
@@ -44,7 +45,8 @@ export const RESTAURANTS = [
     imageUrl: 'https://picsum.photos/800/600?random=3',
     address: 'Jl. Kebon Sirih No. 31, Jakarta Pusat',
     coordinates: { lat: -6.182, lng: 106.83 },
-    openHours: '10:00 - 22:00'
+    openHours: '10:00 - 22:00',
+    facilities: ['AC', 'WiFi', 'VIP Room', 'Toilet Bersih', 'Musholla']
   },
   {
     id: 'jkt-2',
@@ -58,7 +60,8 @@ export const RESTAURANTS = [
     imageUrl: 'https://picsum.photos/800/600?random=4',
     address: 'Jl. Cikini IV No. 5, Jakarta Pusat',
     coordinates: { lat: -6.19, lng: 106.84 },
-    openHours: '09:00 - 17:00'
+    openHours: '09:00 - 17:00',
+    facilities: ['Parkir Terbatas']
   },
   // Bandung
   {
@@ -73,7 +76,8 @@ export const RESTAURANTS = [
     imageUrl: 'https://picsum.photos/800/600?random=5',
     address: 'Jl. Veteran No. 25, Bandung',
     coordinates: { lat: -6.917, lng: 107.619 },
-    openHours: '08:00 - 20:00'
+    openHours: '08:00 - 20:00',
+    facilities: ['Bawa Pulang', 'Toilet Bersih']
   },
   // Yogyakarta
   {
@@ -88,7 +92,8 @@ export const RESTAURANTS = [
     imageUrl: 'https://picsum.photos/800/600?random=6',
     address: 'Jl. Wijilan No. 167, Yogyakarta',
     coordinates: { lat: -7.8, lng: 110.36 },
-    openHours: '06:00 - 22:00'
+    openHours: '06:00 - 22:00',
+    facilities: ['Lesehan', 'Musholla', 'Toilet Bersih']
   },
   // Surabaya
   {
@@ -103,7 +108,8 @@ export const RESTAURANTS = [
     imageUrl: 'https://picsum.photos/800/600?random=7',
     address: 'Jl. Embong Malang No. 78, Surabaya',
     coordinates: { lat: -7.26, lng: 112.75 },
-    openHours: '18:00 - 04:00'
+    openHours: '18:00 - 04:00',
+    facilities: ['AC', 'Parkir Luas', 'Buka Malam']
   }
 ];
 
@@ -133,22 +139,9 @@ export const MOCK_USER_REVIEWS = [
     date: '2024-04-22',
     likes: 5,
     dislikes: 1
-  },
-  {
-    id: 'rv-3',
-    restaurantId: 'jkt-2',
-    restaurantName: 'Gado-Gado Bon Bin',
-    user: 'Anda',
-    userLevel: 'Explorer',
-    rating: 5,
-    comment: 'Bumbu kacangnya beda dari yang lain, lembut banget.',
-    date: '2024-03-15',
-    likes: 8,
-    dislikes: 0
   }
 ];
 
-// Helper untuk mendapatkan review di halaman Detail Restoran
 export const getRestaurantReviews = (restaurantId) => {
   const restaurant = RESTAURANTS.find(r => r.id === restaurantId);
   const name = restaurant ? restaurant.name : 'Restoran';
@@ -161,7 +154,7 @@ export const getRestaurantReviews = (restaurantId) => {
       user: 'Budi Hartono',
       userLevel: 'Legend',
       rating: 5,
-      comment: 'Rasanya otentik banget! Wajib coba kalau lagi mampir ke kota ini. Kuahnya rich banget.',
+      comment: 'Rasanya otentik banget! Wajib coba kalau lagi mampir ke kota ini.',
       date: '2024-02-10',
       likes: 45,
       dislikes: 2,
@@ -174,42 +167,15 @@ export const getRestaurantReviews = (restaurantId) => {
       user: 'Siti Aminah',
       userLevel: 'Foodie',
       rating: 4,
-      comment: 'Tempatnya bersih, pelayanannya ramah. Harganya lumayan tapi worth it.',
+      comment: 'Tempatnya bersih, pelayanannya ramah.',
       date: '2024-01-25',
       likes: 12,
       dislikes: 0
-    },
-    {
-      id: `mock-3-${restaurantId}`,
-      restaurantId,
-      restaurantName: name,
-      user: 'User8821',
-      userLevel: 'Newbie',
-      rating: 5,
-      comment: 'Enak banget woy!',
-      date: '2023-12-12',
-      likes: 2,
-      dislikes: 5,
-      isAnonymous: true
-    },
-    {
-      id: `mock-4-${restaurantId}`,
-      restaurantId,
-      restaurantName: name,
-      user: 'Joko Susilo',
-      userLevel: 'Expert',
-      rating: 3,
-      comment: 'Lumayan enak, cuma parkirannya agak susah kalau bawa mobil besar.',
-      date: '2023-11-05',
-      likes: 20,
-      dislikes: 1
     }
   ];
 };
 
-// Helper baru untuk mengambil profil publik user lain
 export const getUserProfile = (username) => {
-    // Simulasi data profil berdasarkan nama
     const levels = ['Newbie', 'Explorer', 'Foodie', 'Expert', 'Legend'];
     const levelIndex = username.length % levels.length;
     
