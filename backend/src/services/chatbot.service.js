@@ -1,4 +1,4 @@
-const { supabase } = require("../supabase/supabaseClient");
+const supabase = require("../supabase/supabaseClient");
 const { parseUserMessage } = require("./chatbotRuleEngine");
 
 // PURE RULE-BASED — 100% FREE — TANPA OPENAI
