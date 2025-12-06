@@ -5,7 +5,7 @@ export const Wishlist = ({ restaurants, favorites, onToggleFavorite, onViewDetai
   const favoriteRestaurants = restaurants.filter(r => favorites.includes(r.id));
 
   return (
-    <div className="py-8">
+    <div className="py-8 animate-fade-in-up">
       <div className="mb-8">
         <h2 className="text-2xl font-bold text-gray-900">Wishlist Kuliner Anda</h2>
         <p className="text-gray-600">Daftar tempat makan impian yang ingin Anda kunjungi.</p>

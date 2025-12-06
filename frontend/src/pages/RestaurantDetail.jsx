@@ -1,15 +1,116 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { StarRating } from '../components/StarRating';
 
 export const RestaurantDetail = ({ 
   restaurant, 
-  reviews, 
+  reviews: initialReviews, 
   isFavorite, 
   onToggleFavorite, 
-  onBack 
+  onBack,
+  onUserClick
 }) => {
+  const [localReviews, setLocalReviews] = useState(initialReviews);
+  
+  // State untuk Form Review
+  const [newRating, setNewRating] = useState(0);
+  const [newComment, setNewComment] = useState('');
+  const [isAnonymous, setIsAnonymous] = useState(false);
+  const [mediaFile, setMediaFile] = useState(null);
+
+  // BARU: State untuk notifikasi Share
+  const [showShareToast, setShowShareToast] = useState(false);
+
+  // --- LOGIKA SHARE (FITUR BARU) ---
+  const handleShare = async () => {
+    const shareData = {
+      title: `Makan Ki' - ${restaurant.name}`,
+      text: `Coba cek restoran ${restaurant.name} ini! Rating: ${restaurant.rating} bintang.`,
+      url: window.location.href // Mengambil URL halaman saat ini
+    };
+
+    try {
+      // 1. Coba pakai Share Native (untuk HP Android/iOS)
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        // 2. Fallback: Copy link ke clipboard (untuk Desktop)
+        await navigator.clipboard.writeText(shareData.url);
+        
+        // Tampilkan notifikasi "Link disalin"
+        setShowShareToast(true);
+        setTimeout(() => setShowShareToast(false), 3000); // Hilang setelah 3 detik
+      }
+    } catch (err) {
+      console.error('Error sharing:', err);
+    }
+  };
+
+  // --- LOGIKA REVIEW ---
+  const handleSubmitReview = (e) => {
+    e.preventDefault();
+    if (newRating === 0) {
+        alert("Mohon berikan rating bintang!");
+        return;
+    }
+
+    const newReview = {
+        id: `new-${Date.now()}`,
+        restaurantId: restaurant.id,
+        restaurantName: restaurant.name,
+        user: isAnonymous ? 'Pengguna Anonim' : 'Anda',
+        userLevel: isAnonymous ? undefined : 'Explorer', 
+        rating: newRating,
+        comment: newComment,
+        date: new Date().toLocaleDateString('id-ID'),
+        likes: 0,
+        dislikes: 0,
+        isAnonymous: isAnonymous,
+        mediaUrl: mediaFile ? URL.createObjectURL(mediaFile) : undefined
+    };
+
+    setLocalReviews([newReview, ...localReviews]);
+    setNewComment('');
+    setNewRating(0);
+    setMediaFile(null);
+    setIsAnonymous(false);
+  };
+
+  const handleVote = (id, type) => {
+    setLocalReviews(prev => prev.map(r => {
+        if (r.id === id) {
+            return {
+                ...r,
+                likes: type === 'like' ? r.likes + 1 : r.likes,
+                dislikes: type === 'dislike' ? r.dislikes + 1 : r.dislikes
+            };
+        }
+        return r;
+    }));
+  };
+
+  const getBadgeStyle = (level) => {
+    if (!level) return 'hidden';
+    switch (level) {
+      case 'Legend': return 'bg-amber-100 text-amber-800 border-amber-300';
+      case 'Expert': return 'bg-red-100 text-red-800 border-red-200';
+      case 'Foodie': return 'bg-purple-100 text-purple-700 border-purple-200';
+      case 'Explorer': return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'Newbie': return 'bg-green-100 text-green-700 border-green-200';
+      default: return 'hidden';
+    }
+  };
+
   return (
-    <div className="py-6 animate-fade-in-up">
+    <div className="py-6 animate-fade-in-up relative">
+      {/* BARU: Toast Notification (Muncul jika copy link) */}
+      {showShareToast && (
+        <div className="fixed top-24 left-1/2 transform -translate-x-1/2 z-50 bg-gray-900 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-2 animate-fade-in-up">
+          <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+          <span className="font-medium text-sm">Link berhasil disalin!</span>
+        </div>
+      )}
+
+      {/* Navigation */}
       <button 
         onClick={onBack}
         className="flex items-center text-gray-600 hover:text-brand-600 mb-6 transition-colors font-medium"
@@ -21,19 +122,37 @@ export const RestaurantDetail = ({
       </button>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column: Content */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="relative h-[400px] rounded-2xl overflow-hidden shadow-lg">
+          
+          {/* Hero Section */}
+          <div className="relative h-[400px] rounded-2xl overflow-hidden shadow-lg group">
             <img 
               src={restaurant.imageUrl} 
               alt={restaurant.name} 
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
             />
-            <div className="absolute top-4 right-4">
+            
+            {/* UPDATE: Tombol Action (Wishlist & Share) */}
+            <div className="absolute top-4 right-4 z-10 flex gap-2">
+               {/* Tombol Share (BARU) */}
+               <button
+                onClick={handleShare}
+                className="p-3 rounded-full backdrop-blur-md shadow-lg border border-white/20 bg-black/40 text-white hover:bg-black/60 transition-all transform hover:scale-110 active:scale-95"
+                title="Bagikan"
+              >
+                <svg className="w-6 h-6 fill-none stroke-current" viewBox="0 0 24 24" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                </svg>
+              </button>
+
+               {/* Tombol Wishlist */}
                <button
                 onClick={() => onToggleFavorite(restaurant.id)}
-                className={`p-3 rounded-full backdrop-blur-md shadow-lg ${
-                  isFavorite ? 'bg-white text-brand-500' : 'bg-black/40 text-white hover:bg-black/60'
-                } transition-all transform hover:scale-105`}
+                className={`p-3 rounded-full backdrop-blur-md shadow-lg border border-white/20 ${
+                  isFavorite ? 'bg-brand-500 text-white' : 'bg-black/40 text-white hover:bg-black/60'
+                } transition-all transform hover:scale-110 active:scale-95`}
+                title={isFavorite ? "Hapus dari Wishlist" : "Tambah ke Wishlist"}
               >
                 <svg
                   className={`w-6 h-6 ${isFavorite ? 'fill-current' : 'fill-none stroke-current'}`}
@@ -44,7 +163,8 @@ export const RestaurantDetail = ({
                 </svg>
               </button>
             </div>
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-6 sm:p-8">
+
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-6 sm:p-8">
               <span className="bg-brand-600 text-white px-3 py-1 rounded text-xs font-bold uppercase tracking-wide mb-2 inline-block">
                 {restaurant.category}
               </span>
@@ -60,6 +180,7 @@ export const RestaurantDetail = ({
             </div>
           </div>
 
+          {/* Description */}
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Tentang Restoran</h2>
             <p className="text-gray-700 leading-relaxed text-lg">
@@ -67,32 +188,146 @@ export const RestaurantDetail = ({
             </p>
           </div>
 
+          {/* Add Review Form */}
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-gray-900">Ulasan Pengunjung</h2>
-                <button className="text-brand-600 hover:text-brand-700 font-medium text-sm">Lihat Semua</button>
-            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Tulis Ulasan Anda</h3>
+            <form onSubmit={handleSubmitReview} className="space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                    <span className="text-sm text-gray-600">Rating:</span>
+                    <div className="flex cursor-pointer">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                            <svg
+                                key={star}
+                                onClick={() => setNewRating(star)}
+                                className={`w-8 h-8 transition-colors ${star <= newRating ? 'text-secondary-500' : 'text-gray-300 hover:text-secondary-400'}`}
+                                fill="currentColor"
+                                viewBox="0 0 20 20"
+                            >
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                        ))}
+                    </div>
+                </div>
+
+                <textarea
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder="Bagaimana pengalaman makan Anda? (Rasa, Pelayanan, Suasana)"
+                    className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-brand-500 focus:border-transparent min-h-[100px]"
+                    required
+                />
+
+                <div className="flex flex-col sm:flex-row justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer bg-gray-50 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-100 transition">
+                            <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                            <span>{mediaFile ? mediaFile.name : 'Tambah Foto'}</span>
+                            <input 
+                                type="file" 
+                                accept="image/*" 
+                                onChange={(e) => e.target.files && setMediaFile(e.target.files[0])}
+                                className="hidden"
+                            />
+                        </label>
+                        
+                        <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                checked={isAnonymous}
+                                onChange={(e) => setIsAnonymous(e.target.checked)}
+                                className="w-4 h-4 text-brand-600 rounded focus:ring-brand-500"
+                            />
+                            Kirim sebagai Anonim
+                        </label>
+                    </div>
+                    
+                    <button 
+                        type="submit" 
+                        className="bg-brand-600 text-white px-6 py-2 rounded-lg hover:bg-brand-700 transition font-medium"
+                    >
+                        Kirim Ulasan
+                    </button>
+                </div>
+            </form>
+          </div>
+
+          {/* Reviews List */}
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                Ulasan Komunitas
+                <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-xs">{localReviews.length}</span>
+            </h2>
             
-            <div className="space-y-6">
-                {reviews.map((review) => (
-                    <div key={review.id} className="border-b border-gray-100 last:border-0 pb-6 last:pb-0">
-                        <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
-                                     <img 
-                                        src={`https://ui-avatars.com/api/?name=${review.user}&background=random`} 
-                                        alt={review.user}
-                                        className="w-full h-full"
+            <div className="space-y-8">
+                {localReviews.map((review) => (
+                    <div key={review.id} className="flex gap-4">
+                        <div className="flex flex-col items-center gap-1 pt-1">
+                            <button 
+                                onClick={() => handleVote(review.id, 'like')}
+                                className="text-gray-400 hover:text-brand-600 hover:bg-brand-50 p-1 rounded transition-colors"
+                            >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+                            </button>
+                            <span className="text-sm font-bold text-gray-700">
+                                {review.likes - review.dislikes}
+                            </span>
+                            <button 
+                                onClick={() => handleVote(review.id, 'dislike')}
+                                className="text-gray-400 hover:text-brand-600 hover:bg-brand-50 p-1 rounded transition-colors"
+                            >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                            </button>
+                        </div>
+
+                        <div className="flex-1 pb-6 border-b border-gray-100 last:border-0 last:pb-0">
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden border border-gray-200">
+                                         <img 
+                                            src={review.isAnonymous ? "https://ui-avatars.com/api/?name=Anon&background=gray" : `https://ui-avatars.com/api/?name=${review.user}&background=random`} 
+                                            alt={review.user}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            {review.isAnonymous ? (
+                                                <span className="font-semibold text-gray-900 text-sm">Anonim</span>
+                                            ) : (
+                                                <button 
+                                                    onClick={() => onUserClick && onUserClick(review.user)}
+                                                    className="font-semibold text-gray-900 text-sm hover:underline hover:text-brand-600 cursor-pointer"
+                                                >
+                                                    {review.user}
+                                                </button>
+                                            )}
+                                            
+                                            {!review.isAnonymous && review.userLevel && (
+                                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase border ${getBadgeStyle(review.userLevel)}`}>
+                                                    {review.userLevel}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <span className="text-xs text-gray-500">{review.date}</span>
+                                    </div>
+                                </div>
+                                <StarRating rating={review.rating} />
+                            </div>
+                            
+                            <p className="text-gray-700 text-sm leading-relaxed mt-2">
+                                {review.comment}
+                            </p>
+
+                            {review.mediaUrl && (
+                                <div className="mt-3">
+                                    <img 
+                                        src={review.mediaUrl} 
+                                        alt="Review attachment" 
+                                        className="rounded-lg max-h-48 object-cover border border-gray-200"
                                     />
                                 </div>
-                                <div>
-                                    <h4 className="font-semibold text-gray-900 text-sm">{review.user}</h4>
-                                    <span className="text-xs text-gray-500">{review.date}</span>
-                                </div>
-                            </div>
-                            <StarRating rating={review.rating} />
+                            )}
                         </div>
-                        <p className="text-gray-600 text-sm mt-2">"{review.comment}"</p>
                     </div>
                 ))}
             </div>
@@ -136,12 +371,13 @@ export const RestaurantDetail = ({
                 </ul>
 
                 <a 
-                    href={`https://www.google.com/maps/search/?api=1&query=${restaurant.coordinates?.lat},${restaurant.coordinates?.lng}`}
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${restaurant.coordinates.lat},${restaurant.coordinates.lng}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-6 block w-full bg-brand-600 hover:bg-brand-700 text-white text-center py-3 rounded-xl font-semibold transition-colors shadow-lg shadow-brand-500/30"
+                    className="mt-6 flex items-center justify-center gap-2 w-full bg-brand-600 hover:bg-brand-700 text-white text-center py-3 rounded-xl font-bold transition-all shadow-lg shadow-brand-500/30 transform hover:-translate-y-1"
                 >
-                    Buka di Google Maps
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
+                    Arahkan Saya
                 </a>
              </div>
         </div>

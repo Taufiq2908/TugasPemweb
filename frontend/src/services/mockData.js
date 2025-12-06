@@ -1,102 +1,223 @@
 // File: src/services/mockData.js
 
-export const CITIES = ['Makassar', 'Jakarta', 'Bandung', 'Yogyakarta', 'Surabaya'];
-
+// --- DATA RESTORAN ---
 export const RESTAURANTS = [
+  // Makassar
   {
-    id: '1',
+    id: 'mks-1',
     name: 'Coto Nusantara',
-    category: 'Traditional',
+    description: 'Warung Coto Makassar legendaris dengan kuah kental yang kaya rempah.',
+    city: 'Makassar',
+    category: 'Tradisional',
+    priceRange: 'Sedang',
     rating: 4.8,
     reviews: 1240,
-    imageUrl: 'https://images.unsplash.com/photo-1604152135912-04a022e23696?q=80&w=600&auto=format&fit=crop',
-    description: 'Coto Makassar legendaris dengan kuah kental yang kaya rempah. Pilihan daging lokal terbaik.',
-    city: 'Makassar',
+    imageUrl: 'https://picsum.photos/800/600?random=1',
     address: 'Jl. Nusantara No. 32, Makassar',
-    openHours: '08:00 - 22:00',
-    priceRange: 'Sedang',
-    coordinates: { lat: -5.147665, lng: 119.432731 }
+    coordinates: { lat: -5.147665, lng: 119.432731 },
+    openHours: '08:00 - 22:00'
   },
   {
-    id: '2',
-    name: 'Sate Khas Senayan',
-    category: 'Sate',
-    rating: 4.7,
-    reviews: 890,
-    imageUrl: 'https://images.unsplash.com/photo-1555126634-323283e090fa?q=80&w=600&auto=format&fit=crop',
-    description: 'Sate ayam dengan bumbu kacang yang lembut dan daging yang juicy.',
-    city: 'Jakarta',
-    address: 'Jl. Pakubuwono VI No. 6, Jakarta Selatan',
-    openHours: '10:00 - 22:00',
-    priceRange: 'Mahal',
-    coordinates: { lat: -6.234567, lng: 106.891234 }
-  },
-  {
-    id: '3',
-    name: 'Gudeg Yu Djum',
-    category: 'Traditional',
-    rating: 4.9,
-    reviews: 3500,
-    imageUrl: 'https://images.unsplash.com/photo-1634818462211-536098006952?q=80&w=600&auto=format&fit=crop',
-    description: 'Gudeg kering khas Jogja yang manis gurih, lengkap dengan krecek pedas.',
-    city: 'Yogyakarta',
-    address: 'Jl. Wijilan No. 167, Yogyakarta',
-    openHours: '06:00 - 22:00',
-    priceRange: 'Sedang',
-    coordinates: { lat: -7.801234, lng: 110.364567 }
-  },
-   {
-    id: '4',
+    id: 'mks-2',
     name: 'Pallubasa Serigala',
-    category: 'Traditional',
+    description: 'Hidangan daging sapi dengan kelapa sangrai khas Makassar.',
+    city: 'Makassar',
+    category: 'Tradisional',
+    priceRange: 'Sedang',
+    rating: 4.7,
+    reviews: 980,
+    imageUrl: 'https://picsum.photos/800/600?random=2',
+    address: 'Jl. Serigala No. 54, Makassar',
+    coordinates: { lat: -5.1587, lng: 119.4156 },
+    openHours: '09:00 - 21:00'
+  },
+  // Jakarta
+  {
+    id: 'jkt-1',
+    name: 'Sate Khas Senayan',
+    description: 'Restoran keluarga menyajikan sate ayam dan kambing premium.',
+    city: 'Jakarta',
+    category: 'Indonesian',
+    priceRange: 'Mahal',
+    rating: 4.5,
+    reviews: 500,
+    imageUrl: 'https://picsum.photos/800/600?random=3',
+    address: 'Jl. Kebon Sirih No. 31, Jakarta Pusat',
+    coordinates: { lat: -6.182, lng: 106.83 },
+    openHours: '10:00 - 22:00'
+  },
+  {
+    id: 'jkt-2',
+    name: 'Gado-Gado Bon Bin',
+    description: 'Gado-gado legendaris di Cikini sejak tahun 1960.',
+    city: 'Jakarta',
+    category: 'Street Food',
+    priceRange: 'Sedang',
+    rating: 4.6,
+    reviews: 320,
+    imageUrl: 'https://picsum.photos/800/600?random=4',
+    address: 'Jl. Cikini IV No. 5, Jakarta Pusat',
+    coordinates: { lat: -6.19, lng: 106.84 },
+    openHours: '09:00 - 17:00'
+  },
+  // Bandung
+  {
+    id: 'bdg-1',
+    name: 'Batagor Kingsley',
+    description: 'Batagor asli Bandung dengan bumbu kacang yang creamy.',
+    city: 'Bandung',
+    category: 'Snack',
+    priceRange: 'Sedang',
     rating: 4.9,
     reviews: 2100,
-    imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=600&auto=format&fit=crop',
-    description: 'Pallubasa otentik dengan taburan kelapa sangrai yang gurih.',
-    city: 'Makassar',
-    address: 'Jl. Serigala No. 54, Makassar',
-    openHours: '10:00 - 23:00',
-    priceRange: 'Murah',
-    coordinates: { lat: -5.160123, lng: 119.418901 }
+    imageUrl: 'https://picsum.photos/800/600?random=5',
+    address: 'Jl. Veteran No. 25, Bandung',
+    coordinates: { lat: -6.917, lng: 107.619 },
+    openHours: '08:00 - 20:00'
+  },
+  // Yogyakarta
+  {
+    id: 'yog-1',
+    name: 'Gudeg Yu Djum',
+    description: 'Gudeg kering khas Jogja yang manis dan gurih, oleh-oleh wajib.',
+    city: 'Yogyakarta',
+    category: 'Tradisional',
+    priceRange: 'Sedang',
+    rating: 4.7,
+    reviews: 3500,
+    imageUrl: 'https://picsum.photos/800/600?random=6',
+    address: 'Jl. Wijilan No. 167, Yogyakarta',
+    coordinates: { lat: -7.8, lng: 110.36 },
+    openHours: '06:00 - 22:00'
+  },
+  // Surabaya
+  {
+    id: 'sby-1',
+    name: 'Rawon Setan',
+    description: 'Rawon dengan potongan daging besar dan kuah hitam pekat pedas.',
+    city: 'Surabaya',
+    category: 'Tradisional',
+    priceRange: 'Sedang',
+    rating: 4.6,
+    reviews: 1800,
+    imageUrl: 'https://picsum.photos/800/600?random=7',
+    address: 'Jl. Embong Malang No. 78, Surabaya',
+    coordinates: { lat: -7.26, lng: 112.75 },
+    openHours: '18:00 - 04:00'
   }
 ];
 
+export const CITIES = ['Makassar', 'Jakarta', 'Bandung', 'Yogyakarta', 'Surabaya'];
+
 export const MOCK_USER_REVIEWS = [
-    {
-      id: 'r1',
-      restaurantName: 'Coto Nusantara',
-      user: 'Budi Santoso',
-      date: '2 Hari lalu',
-      rating: 5,
-      comment: 'Kuahnya mantap sekali! Dagingnya empuk.'
-    },
-    {
-        id: 'r2',
-        restaurantName: 'Gudeg Yu Djum',
-        user: 'Siti Aminah',
-        date: '1 Minggu lalu',
-        rating: 4,
-        comment: 'Antriannya panjang tapi worth it.'
-    }
+  {
+    id: 'rv-1',
+    restaurantId: 'mks-1',
+    restaurantName: 'Coto Nusantara',
+    user: 'Anda',
+    userLevel: 'Explorer',
+    rating: 5,
+    comment: 'Kuahnya mantap sekali! Dagingnya empuk.',
+    date: '2024-05-10',
+    likes: 12,
+    dislikes: 0
+  },
+  {
+    id: 'rv-2',
+    restaurantId: 'bdg-1',
+    restaurantName: 'Batagor Kingsley',
+    user: 'Anda',
+    userLevel: 'Explorer',
+    rating: 4,
+    comment: 'Enak tapi antriannya panjang banget pas weekend.',
+    date: '2024-04-22',
+    likes: 5,
+    dislikes: 1
+  },
+  {
+    id: 'rv-3',
+    restaurantId: 'jkt-2',
+    restaurantName: 'Gado-Gado Bon Bin',
+    user: 'Anda',
+    userLevel: 'Explorer',
+    rating: 5,
+    comment: 'Bumbu kacangnya beda dari yang lain, lembut banget.',
+    date: '2024-03-15',
+    likes: 8,
+    dislikes: 0
+  }
 ];
 
-// Helper function untuk detail restoran
-export const getRestaurantReviews = (id) => {
-    // Di aplikasi nyata, ini akan filter berdasarkan ID restoran
-    return [
-        {
-            id: 'rev1',
-            user: 'Pengunjung 1',
-            date: 'Kemarin',
-            rating: 5,
-            comment: 'Sangat direkomendasikan!'
-        },
-        {
-            id: 'rev2',
-            user: 'Pengunjung 2',
-            date: '3 Hari lalu',
-            rating: 4,
-            comment: 'Enak tapi agak pedas.'
-        }
-    ];
+// Helper untuk mendapatkan review di halaman Detail Restoran
+export const getRestaurantReviews = (restaurantId) => {
+  const restaurant = RESTAURANTS.find(r => r.id === restaurantId);
+  const name = restaurant ? restaurant.name : 'Restoran';
+  
+  return [
+    {
+      id: `mock-1-${restaurantId}`,
+      restaurantId,
+      restaurantName: name,
+      user: 'Budi Hartono',
+      userLevel: 'Legend',
+      rating: 5,
+      comment: 'Rasanya otentik banget! Wajib coba kalau lagi mampir ke kota ini. Kuahnya rich banget.',
+      date: '2024-02-10',
+      likes: 45,
+      dislikes: 2,
+      mediaUrl: 'https://picsum.photos/400/300?random=101'
+    },
+    {
+      id: `mock-2-${restaurantId}`,
+      restaurantId,
+      restaurantName: name,
+      user: 'Siti Aminah',
+      userLevel: 'Foodie',
+      rating: 4,
+      comment: 'Tempatnya bersih, pelayanannya ramah. Harganya lumayan tapi worth it.',
+      date: '2024-01-25',
+      likes: 12,
+      dislikes: 0
+    },
+    {
+      id: `mock-3-${restaurantId}`,
+      restaurantId,
+      restaurantName: name,
+      user: 'User8821',
+      userLevel: 'Newbie',
+      rating: 5,
+      comment: 'Enak banget woy!',
+      date: '2023-12-12',
+      likes: 2,
+      dislikes: 5,
+      isAnonymous: true
+    },
+    {
+      id: `mock-4-${restaurantId}`,
+      restaurantId,
+      restaurantName: name,
+      user: 'Joko Susilo',
+      userLevel: 'Expert',
+      rating: 3,
+      comment: 'Lumayan enak, cuma parkirannya agak susah kalau bawa mobil besar.',
+      date: '2023-11-05',
+      likes: 20,
+      dislikes: 1
+    }
+  ];
+};
+
+// Helper baru untuk mengambil profil publik user lain
+export const getUserProfile = (username) => {
+    // Simulasi data profil berdasarkan nama
+    const levels = ['Newbie', 'Explorer', 'Foodie', 'Expert', 'Legend'];
+    const levelIndex = username.length % levels.length;
+    
+    return {
+        name: username,
+        email: 'hidden@email.com',
+        level: levels[levelIndex],
+        joinDate: '2023',
+        reviewCount: (username.length * 12) + 5
+    };
 };
