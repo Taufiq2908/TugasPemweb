@@ -32,14 +32,14 @@ export const RestaurantCard = ({ data, isFavorite, onToggleFavorite, onClick }) 
             </svg>
           </button>
         </div>
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
+        <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/70 to-transparent p-3">
             <span className="text-white text-xs font-bold uppercase tracking-wider bg-brand-500 px-2 py-0.5 rounded-sm">
                 {data.city}
             </span>
         </div>
       </div>
 
-      <div className="p-4 flex flex-col flex-grow">
+      <div className="p-4 flex flex-col grow">
         <div className="flex justify-between items-start mb-2">
           <h3 className="text-lg font-bold text-gray-900 leading-tight group-hover:text-brand-600 transition-colors">{data.name}</h3>
         </div>
@@ -49,7 +49,7 @@ export const RestaurantCard = ({ data, isFavorite, onToggleFavorite, onClick }) 
            <span className="text-xs text-gray-400">{data.reviews} ulasan</span>
         </div>
 
-        <p className="text-sm text-gray-600 line-clamp-2 mb-3 flex-grow">
+        <p className="text-sm text-gray-600 line-clamp-2 mb-3 grow">
           {data.description}
         </p>
 

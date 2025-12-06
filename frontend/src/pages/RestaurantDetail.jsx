@@ -8,8 +8,8 @@ export const RestaurantDetail = ({
   onToggleFavorite, 
   onBack,
   onUserClick,
-  user,           // <-- Props Baru (Data User)
-  onAuthRequest   // <-- Props Baru (Fungsi Login)
+  user,           // Props data user
+  onAuthRequest   // Props fungsi login
 }) => {
   const [localReviews, setLocalReviews] = useState(initialReviews);
   
@@ -20,7 +20,21 @@ export const RestaurantDetail = ({
   const [mediaFile, setMediaFile] = useState(null);
   const [showShareToast, setShowShareToast] = useState(false);
 
-  // Fungsi Share
+  // --- 1. HELPER: Logika Avatar (Solusi Masalah Anda) ---
+  const getReviewAvatar = (review) => {
+    // Prioritas 1: Jika Anonim, pakai gambar abu-abu
+    if (review.isAnonymous) {
+        return "https://ui-avatars.com/api/?name=Anon&background=gray";
+    }
+    // Prioritas 2: Jika ada foto user (dari import), pakai itu
+    if (review.userAvatar) {
+        return review.userAvatar;
+    }
+    // Prioritas 3: Default (Generate dari inisial nama)
+    return `https://ui-avatars.com/api/?name=${review.user}&background=random`;
+  };
+
+  // --- 2. FUNGSI: Share ---
   const handleShare = async () => {
     const shareData = {
       title: `Makan Ki' - ${restaurant.name}`,
@@ -41,10 +55,11 @@ export const RestaurantDetail = ({
     }
   };
 
+  // --- 3. FUNGSI: Submit Review ---
   const handleSubmitReview = (e) => {
     e.preventDefault();
     
-    // Validasi Ganda (Jaga-jaga)
+    // Validasi User (Gunakan Optional Chaining ?. biar aman)
     if (!user) {
         onAuthRequest();
         return;
@@ -59,9 +74,14 @@ export const RestaurantDetail = ({
         id: `new-${Date.now()}`,
         restaurantId: restaurant.id,
         restaurantName: restaurant.name,
-        // Gunakan nama user yang login, atau 'Anda' jika error, atau 'Anonim' jika dicentang
-        user: isAnonymous ? 'Pengguna Anonim' : (user.name || 'Anda'),
-        userLevel: isAnonymous ? undefined : (user.level || 'Explorer'), 
+        
+        // Data User (Aman dari crash)
+        user: isAnonymous ? 'Pengguna Anonim' : (user?.name || 'Anda'),
+        userLevel: isAnonymous ? undefined : (user?.level || 'Explorer'), 
+        
+        // Simpan Avatar User saat ini ke review
+        userAvatar: isAnonymous ? null : user?.avatarUrl,
+
         rating: newRating,
         comment: newComment,
         date: new Date().toLocaleDateString('id-ID'),
@@ -105,7 +125,7 @@ export const RestaurantDetail = ({
 
   return (
     <div className="py-6 animate-fade-in-up relative">
-      {/* Toast Notification */}
+      {/* Toast Notifikasi Share */}
       {showShareToast && (
         <div className="fixed top-24 left-1/2 transform -translate-x-1/2 z-50 bg-gray-900 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-2 animate-fade-in-up">
           <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
@@ -113,7 +133,7 @@ export const RestaurantDetail = ({
         </div>
       )}
 
-      {/* Navigation */}
+      {/* Navigasi */}
       <button 
         onClick={onBack}
         className="flex items-center text-gray-600 hover:text-brand-600 mb-6 transition-colors font-medium"
@@ -125,10 +145,10 @@ export const RestaurantDetail = ({
       </button>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column */}
+        {/* Kolom Kiri */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* Hero Section */}
+          {/* Hero Image */}
           <div className="relative h-[400px] rounded-2xl overflow-hidden shadow-lg group">
             <img 
               src={restaurant.imageUrl} 
@@ -137,7 +157,7 @@ export const RestaurantDetail = ({
             />
             
             <div className="absolute top-4 right-4 z-10 flex gap-2">
-               {/* Share Button */}
+               {/* Tombol Share */}
                <button
                 onClick={handleShare}
                 className="p-3 rounded-full backdrop-blur-md shadow-lg border border-white/20 bg-black/40 text-white hover:bg-black/60 transition-all transform hover:scale-110 active:scale-95"
@@ -148,7 +168,7 @@ export const RestaurantDetail = ({
                 </svg>
               </button>
 
-               {/* Wishlist Button */}
+               {/* Tombol Wishlist */}
                <button
                 onClick={() => onToggleFavorite(restaurant.id)}
                 className={`p-3 rounded-full backdrop-blur-md shadow-lg border border-white/20 ${
@@ -166,7 +186,7 @@ export const RestaurantDetail = ({
               </button>
             </div>
 
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-6 sm:p-8">
+            <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/90 via-black/50 to-transparent p-6 sm:p-8">
               <span className="bg-brand-600 text-white px-3 py-1 rounded text-xs font-bold uppercase tracking-wide mb-2 inline-block">
                 {restaurant.category}
               </span>
@@ -182,7 +202,7 @@ export const RestaurantDetail = ({
             </div>
           </div>
 
-          {/* Description */}
+          {/* Deskripsi */}
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Tentang Restoran</h2>
             <p className="text-gray-700 leading-relaxed text-lg">
@@ -190,11 +210,10 @@ export const RestaurantDetail = ({
             </p>
           </div>
 
-          {/* --- LOGIKA TAMPILAN FORM REVIEW --- */}
+          {/* Form Input Review (Hanya muncul jika login) */}
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
             <h3 className="text-lg font-bold text-gray-900 mb-4">Tulis Ulasan Anda</h3>
             
-            {/* Jika User Login -> Tampilkan Form */}
             {user ? (
                 <form onSubmit={handleSubmitReview} className="space-y-4">
                     <div className="flex items-center gap-2 mb-2">
@@ -255,7 +274,6 @@ export const RestaurantDetail = ({
                     </div>
                 </form>
             ) : (
-                // Jika Guest -> Tampilkan Pesan Login
                 <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-300">
                     <div className="text-4xl mb-3">🔒</div>
                     <h4 className="text-gray-800 font-bold mb-2">Ingin membagikan pengalaman Anda?</h4>
@@ -272,7 +290,7 @@ export const RestaurantDetail = ({
             )}
           </div>
 
-          {/* Reviews List */}
+          {/* Daftar Review */}
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
             <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                 Ulasan Komunitas
@@ -304,8 +322,9 @@ export const RestaurantDetail = ({
                             <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden border border-gray-200">
+                                         {/* PANGGIL HELPER FUNCTION DI SINI */}
                                          <img 
-                                            src={review.isAnonymous ? "https://ui-avatars.com/api/?name=Anon&background=gray" : `https://ui-avatars.com/api/?name=${review.user}&background=random`} 
+                                            src={getReviewAvatar(review)}
                                             alt={review.user}
                                             className="w-full h-full object-cover"
                                         />
@@ -355,7 +374,7 @@ export const RestaurantDetail = ({
           </div>
         </div>
 
-        {/* Right Sidebar */}
+        {/* Sidebar Kanan */}
         <div className="lg:col-span-1 space-y-6">
              <div className="bg-white rounded-xl p-6 shadow-md border border-gray-100 sticky top-24">
                 <h3 className="font-bold text-lg text-gray-900 mb-4 border-b border-gray-100 pb-2">Informasi</h3>

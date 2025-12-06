@@ -1,4 +1,4 @@
-// File: src/services/mockData.js
+export const CITIES = ['Makassar', 'Jakarta', 'Bandung', 'Yogyakarta', 'Surabaya'];
 
 export const RESTAURANTS = [
   // Makassar
@@ -93,7 +93,7 @@ export const RESTAURANTS = [
     address: 'Jl. Wijilan No. 167, Yogyakarta',
     coordinates: { lat: -7.8, lng: 110.36 },
     openHours: '06:00 - 22:00',
-    facilities: ['Lesehan', 'Musholla', 'Toilet Bersih']
+    facilities: ['Lesehan', 'Musholla']
   },
   // Surabaya
   {
@@ -112,8 +112,6 @@ export const RESTAURANTS = [
     facilities: ['AC', 'Parkir Luas', 'Buka Malam']
   }
 ];
-
-export const CITIES = ['Makassar', 'Jakarta', 'Bandung', 'Yogyakarta', 'Surabaya'];
 
 export const MOCK_USER_REVIEWS = [
   {
@@ -151,10 +149,10 @@ export const getRestaurantReviews = (restaurantId) => {
       id: `mock-1-${restaurantId}`,
       restaurantId,
       restaurantName: name,
-      user: 'Budi Hartono',
+      user: 'Mas Rusdi',
       userLevel: 'Legend',
       rating: 5,
-      comment: 'Rasanya otentik banget! Wajib coba kalau lagi mampir ke kota ini.',
+      comment: 'Rasanya yahaha hayyuk banget! Wajib coba.',
       date: '2024-02-10',
       likes: 45,
       dislikes: 2,
@@ -164,7 +162,7 @@ export const getRestaurantReviews = (restaurantId) => {
       id: `mock-2-${restaurantId}`,
       restaurantId,
       restaurantName: name,
-      user: 'Siti Aminah',
+      user: 'Bukan Penimpa',
       userLevel: 'Foodie',
       rating: 4,
       comment: 'Tempatnya bersih, pelayanannya ramah.',
@@ -177,13 +175,17 @@ export const getRestaurantReviews = (restaurantId) => {
 
 export const getUserProfile = (username) => {
     const levels = ['Newbie', 'Explorer', 'Foodie', 'Expert', 'Legend'];
+    const cities = ['Makassar', 'Jakarta', 'Surabaya', 'Bandung', 'Yogyakarta'];
     const levelIndex = username.length % levels.length;
+    const cityIndex = username.length % cities.length;
     
     return {
         name: username,
         email: 'hidden@email.com',
+        city: cities[cityIndex],
         level: levels[levelIndex],
         joinDate: '2023',
-        reviewCount: (username.length * 12) + 5
+        reviewCount: (username.length * 12) + 5,
+        totalUpvotes: (username.length * 5) + 10
     };
 };

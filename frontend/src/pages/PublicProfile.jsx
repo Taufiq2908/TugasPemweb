@@ -26,7 +26,7 @@ export const PublicProfile = ({ user, onBack }) => {
 
       {/* Header Profil */}
       <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden mb-8">
-        <div className="h-32 bg-gradient-to-r from-brand-600 to-brand-400"></div>
+        <div className="h-32 bg-linear-to-r from-brand-600 to-brand-400"></div>
         <div className="px-8 pb-8 flex flex-col sm:flex-row items-center sm:items-end -mt-12 gap-6">
            <div className="w-24 h-24 rounded-full border-4 border-white bg-white shadow-md overflow-hidden">
               <img 
