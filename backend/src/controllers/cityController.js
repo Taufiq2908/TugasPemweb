@@ -210,10 +210,10 @@ exports.detectNearbyCity = async (req, res) => {
 
     return res.json({
       found: true,
-      city: nearestCity.name,
-      id: nearestCity.id,
-      distanceKm: nearestDist
+      city: { id: nearestCity.id, name: nearestCity.name },
+      distance_km: nearestDist,
     });
+
   } catch (err) {
     console.error("detectNearbyCity error:", err);
     res.status(500).json({ error: err.message });

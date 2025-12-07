@@ -769,7 +769,7 @@ function App() {
 
       {/* Modal pilih kota manual */}
       {isCityModalOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify(center) p-4 bg-black/50">
+        <div className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-2">
               Pilih Kota
