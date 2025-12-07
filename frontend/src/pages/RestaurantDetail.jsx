@@ -1,428 +1,841 @@
-import React, { useState } from 'react';
-import { StarRating } from '../components/StarRating';
+import React, { useState, useEffect, useMemo } from "react";
+import { StarRating } from "../components/StarRating";
 
-export const RestaurantDetail = ({ 
-  restaurant, 
-  reviews: initialReviews, 
-  isFavorite, 
-  onToggleFavorite, 
+// =========================
+// CONFIG API + SUPABASE
+// =========================
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const reviewBucket =
+  import.meta.env.VITE_SUPABASE_REVIEW_BUCKET || "review-photos";
+
+const supabase =
+  supabaseUrl && supabaseAnonKey
+    ? createClient(supabaseUrl, supabaseAnonKey)
+    : null;
+
+// Helper upload gambar ke Supabase Storage
+async function uploadReviewImage(file, placeId, userId) {
+  if (!supabase) {
+    console.warn("Supabase client belum dikonfigurasi di frontend.");
+    return null;
+  }
+
+  const ext = file.name.split(".").pop();
+  const filePath = `reviews/${placeId}/${userId || "anon"}-${Date.now()}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(reviewBucket)
+    .upload(filePath, file);
+
+  if (uploadError) {
+    console.error("Upload Supabase gagal:", uploadError);
+    throw uploadError;
+  }
+
+  const { data: publicData } = supabase.storage
+    .from(reviewBucket)
+    .getPublicUrl(filePath);
+
+  return publicData?.publicUrl || null;
+}
+
+// Helper konversi format review backend -> frontend
+function mapBackendReview(raw) {
+  const userName = raw.is_anonymous
+    ? "Pengguna Anonim"
+    : raw.user_name || "Pengguna";
+
+  const avatarUrl =
+    raw.user_avatar_url ||
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(
+      userName
+    )}&background=e11d48&color=fff`;
+
+  return {
+    id: raw.id,
+    userId: raw.user_id,
+    userName,
+    userAvatar: avatarUrl,
+    rating: raw.rating,
+    comment: raw.comment,
+    isAnonymous: raw.is_anonymous,
+    date: raw.created_at,
+    likes: raw.thumbs_up_count || 0,
+    photos: raw.photo_urls || [],
+  };
+}
+
+export const RestaurantDetail = ({
+  restaurant, // initial data dari mock / list
+  reviews: initialReviews = [], // masih dipakai sebagai fallback kalau API gagal
+  isFavorite,
+  onToggleFavorite,
   onBack,
   onUserClick,
-  user,           // Props data user
-  onAuthRequest   // Props fungsi login
+  user,
+  onAuthRequest,
 }) => {
-  const [localReviews, setLocalReviews] = useState(initialReviews);
-  
-  // State Form
+  const [place, setPlace] = useState(restaurant || null);
+  const [loadingPlace, setLoadingPlace] = useState(false);
+  const [placeError, setPlaceError] = useState("");
+
+  const [localReviews, setLocalReviews] = useState(
+    (initialReviews || []).map((r) => ({
+      id: r.id,
+      userId: r.userId,
+      userName: r.userName,
+      userAvatar: r.userAvatar,
+      rating: r.rating,
+      comment: r.comment,
+      isAnonymous: r.isAnonymous,
+      date: r.date,
+      likes: r.likes || 0,
+      photos: r.photos || [],
+    }))
+  );
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [reviewsError, setReviewsError] = useState("");
+
+  // Form ulasan
   const [newRating, setNewRating] = useState(0);
-  const [newComment, setNewComment] = useState('');
+  const [newComment, setNewComment] = useState("");
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [mediaFile, setMediaFile] = useState(null);
-  const [showShareToast, setShowShareToast] = useState(false);
+  const [mediaPreviewUrl, setMediaPreviewUrl] = useState(null);
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [submitSuccess, setSubmitSuccess] = useState("");
 
-  // --- 1. HELPER: Logika Avatar (Solusi Masalah Anda) ---
-  const getReviewAvatar = (review) => {
-    // Prioritas 1: Jika Anonim, pakai gambar abu-abu
-    if (review.isAnonymous) {
-        return "https://ui-avatars.com/api/?name=Anon&background=gray";
+  const [activeSection, setActiveSection] = useState("overview"); // 'overview' | 'reviews'
+  const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+
+  const placeId = restaurant?.id;
+
+  // ==========================
+  // Fetch DETAIL TEMPAT
+  // ==========================
+  useEffect(() => {
+    if (!placeId) return;
+    let isCancelled = false;
+
+    const fetchPlace = async () => {
+      setLoadingPlace(true);
+      setPlaceError("");
+
+      try {
+        const res = await fetch(`${API_BASE}/places/${placeId}`);
+        if (!res.ok) {
+          throw new Error("Gagal mengambil data tempat.");
+        }
+        const data = await res.json();
+        if (!isCancelled) {
+          setPlace(data);
+        }
+      } catch (err) {
+        console.error(err);
+        if (!isCancelled) {
+          setPlaceError("Gagal memuat detail tempat. Menggunakan data awal.");
+          setPlace(restaurant || null); // fallback ke props
+        }
+      }
+      if (!isCancelled) setLoadingPlace(false);
+    };
+
+    fetchPlace();
+    return () => {
+      isCancelled = true;
+    };
+  }, [placeId, restaurant]);
+
+  // ==========================
+  // Fetch ULASAN DARI BACKEND
+  // ==========================
+  const loadReviews = async () => {
+    if (!placeId) return;
+    setLoadingReviews(true);
+    setReviewsError("");
+    try {
+      const res = await fetch(`${API_BASE}/reviews/place/${placeId}`);
+      if (!res.ok) {
+        throw new Error("Gagal mengambil ulasan.");
+      }
+      const data = await res.json(); // getReviewsByPlace mengembalikan array langsung
+      const mapped = (data || []).map(mapBackendReview);
+      setLocalReviews(mapped);
+    } catch (err) {
+      console.error(err);
+      setReviewsError("Gagal memuat ulasan. Menampilkan data lokal jika ada.");
+      // fallback: biarkan localReviews dari props
     }
-    // Prioritas 2: Jika ada foto user (dari import), pakai itu
-    if (review.userAvatar) {
-        return review.userAvatar;
-    }
-    // Prioritas 3: Default (Generate dari inisial nama)
-    return `https://ui-avatars.com/api/?name=${review.user}&background=random`;
+    setLoadingReviews(false);
   };
 
-  // --- 2. FUNGSI: Share ---
-  const handleShare = async () => {
-    const shareData = {
-      title: `Makan Ki' - ${restaurant.name}`,
-      text: `Coba cek restoran ${restaurant.name} ini! Rating: ${restaurant.rating} bintang.`,
-      url: window.location.href
-    };
+  useEffect(() => {
+    loadReviews();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [placeId]);
+
+  // ==========================
+  // Statistik rating dari ulasan
+  // ==========================
+  const reviewStats = useMemo(() => {
+    if (!localReviews.length) {
+      return {
+        average: place?.average_rating || 0,
+        count: place?.review_count || 0,
+        distribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
+      };
+    }
+
+    const count = localReviews.length;
+    const total = localReviews.reduce((sum, r) => sum + (r.rating || 0), 0);
+    const average = total / count;
+
+    const distribution = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    localReviews.forEach((r) => {
+      const rt = Math.round(r.rating || 0);
+      if (distribution[rt] != null) distribution[rt] += 1;
+    });
+
+    return { average, count, distribution };
+  }, [localReviews, place]);
+
+  // ==========================
+  // Handle perubahan file foto
+  // ==========================
+  const handleMediaChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setMediaFile(file);
+    setMediaPreviewUrl(URL.createObjectURL(file));
+  };
+
+  // ==========================
+  // Submit Ulasan Baru
+  // ==========================
+  const handleSubmitReview = async (e) => {
+    e.preventDefault();
+    setSubmitError("");
+    setSubmitSuccess("");
+
+    if (!user) {
+      if (onAuthRequest) onAuthRequest();
+      return;
+    }
+
+    if (!newRating) {
+      setSubmitError("Silakan beri rating terlebih dahulu.");
+      return;
+    }
+    if (newComment.trim().length < 10) {
+      setSubmitError("Ulasan minimal 10 karakter.");
+      return;
+    }
+
+    setSubmittingReview(true);
 
     try {
-      if (navigator.share) {
-        await navigator.share(shareData);
-      } else {
-        await navigator.clipboard.writeText(shareData.url);
-        setShowShareToast(true);
-        setTimeout(() => setShowShareToast(false), 3000);
+      const token = localStorage.getItem("makanKi_token");
+      if (!token) {
+        setSubmitError("Session login berakhir. Silakan login kembali.");
+        setSubmittingReview(false);
+        if (onAuthRequest) onAuthRequest();
+        return;
+      }
+
+      // 1. Upload foto ke Supabase (jika ada)
+      let photoUrls = [];
+      if (mediaFile) {
+        try {
+          const url = await uploadReviewImage(mediaFile, placeId, user.id);
+          if (url) {
+            photoUrls = [url];
+          }
+        } catch (err) {
+          console.error("Upload foto gagal:", err);
+          // Tidak fatal, tetap lanjut kirim ulasan tanpa foto
+        }
+      }
+
+      // 2. Kirim ulasan ke backend
+      const res = await fetch(`${API_BASE}/reviews`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          place_id: placeId,
+          rating: newRating,
+          comment: newComment.trim(),
+          is_anonymous: isAnonymous,
+          photo_urls: photoUrls,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setSubmitError(data.message || "Gagal mengirim ulasan.");
+        setSubmittingReview(false);
+        return;
+      }
+
+      // Backend mengirim satu review baru -> map dan prepend
+      const mapped = mapBackendReview(data.data || data);
+      setLocalReviews((prev) => [mapped, ...prev]);
+
+      setSubmitSuccess("Ulasan berhasil dikirim. Terima kasih! 🙌");
+      setNewRating(0);
+      setNewComment("");
+      setIsAnonymous(false);
+      setMediaFile(null);
+      setMediaPreviewUrl(null);
+    } catch (err) {
+      console.error(err);
+      setSubmitError("Terjadi kesalahan koneksi ke server.");
+    }
+
+    setSubmittingReview(false);
+  };
+
+  // ==========================
+  // Like / Bantu Ulasan
+  // ==========================
+  const handleLikeReview = async (reviewId) => {
+    if (!user) {
+      if (onAuthRequest) onAuthRequest();
+      return;
+    }
+    const token = localStorage.getItem("makanKi_token");
+    if (!token) {
+      if (onAuthRequest) onAuthRequest();
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `${API_BASE}/review-likes/${reviewId}/like`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await res.json();
+      if (!res.ok) {
+        console.warn("Gagal like ulasan:", data.message || data.error);
+        // tetap coba refresh count
+      }
+
+      // Refresh total like
+      const resLikes = await fetch(
+        `${API_BASE}/review-likes/${reviewId}/likes`
+      );
+      if (resLikes.ok) {
+        const likesData = await resLikes.json();
+        const totalLikes =
+          likesData.total_likes ??
+          likesData.likeCount ??
+          likesData.count ??
+          0;
+        setLocalReviews((prev) =>
+          prev.map((r) =>
+            r.id === reviewId ? { ...r, likes: totalLikes } : r
+          )
+        );
       }
     } catch (err) {
-      console.error('Error sharing:', err);
+      console.error(err);
     }
   };
 
-  // --- 3. FUNGSI: Submit Review ---
-  const handleSubmitReview = (e) => {
-    e.preventDefault();
-    
-    // Validasi User (Gunakan Optional Chaining ?. biar aman)
-    if (!user) {
-        onAuthRequest();
-        return;
+  // ==========================
+  // Helper tampilan
+  // ==========================
+  const restaurantData = place || restaurant || {};
+  const photos = restaurantData.photos || restaurant?.photos || [];
+  const mainPhoto =
+    photos[activePhotoIndex] ||
+    restaurantData.image_url ||
+    "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1200&q=80";
+
+  const avgRatingDisplay = reviewStats.average
+    ? reviewStats.average.toFixed(1)
+    : (restaurantData.average_rating || restaurantData.rating || 0).toFixed
+    ? (restaurantData.average_rating || restaurantData.rating || 0).toFixed(1)
+    : "0.0";
+
+  const reviewCountDisplay =
+    reviewStats.count || restaurantData.review_count || 0;
+
+  const openInMaps = () => {
+    if (restaurantData.google_maps_url) {
+      window.open(restaurantData.google_maps_url, "_blank");
+      return;
     }
-
-    if (newRating === 0) {
-        alert("Mohon berikan rating bintang!");
-        return;
+    if (restaurantData.lat && restaurantData.lng) {
+      window.open(
+        `https://www.google.com/maps?q=${restaurantData.lat},${restaurantData.lng}`,
+        "_blank"
+      );
+      return;
     }
-
-    const newReview = {
-        id: `new-${Date.now()}`,
-        restaurantId: restaurant.id,
-        restaurantName: restaurant.name,
-        
-        // Data User (Aman dari crash)
-        user: isAnonymous ? 'Pengguna Anonim' : (user?.name || 'Anda'),
-        userLevel: isAnonymous ? undefined : (user?.level || 'Explorer'), 
-        
-        // Simpan Avatar User saat ini ke review
-        userAvatar: isAnonymous ? null : user?.avatarUrl,
-
-        rating: newRating,
-        comment: newComment,
-        date: new Date().toLocaleDateString('id-ID'),
-        likes: 0,
-        dislikes: 0,
-        isAnonymous: isAnonymous,
-        mediaUrl: mediaFile ? URL.createObjectURL(mediaFile) : undefined
-    };
-
-    setLocalReviews([newReview, ...localReviews]);
-    setNewComment('');
-    setNewRating(0);
-    setMediaFile(null);
-    setIsAnonymous(false);
-  };
-
-  const handleVote = (id, type) => {
-    setLocalReviews(prev => prev.map(r => {
-        if (r.id === id) {
-            return {
-                ...r,
-                likes: type === 'like' ? r.likes + 1 : r.likes,
-                dislikes: type === 'dislike' ? r.dislikes + 1 : r.dislikes
-            };
-        }
-        return r;
-    }));
-  };
-
-  const getBadgeStyle = (level) => {
-    if (!level) return 'hidden';
-    switch (level) {
-      case 'Legend': return 'bg-amber-100 text-amber-800 border-amber-300';
-      case 'Expert': return 'bg-red-100 text-red-800 border-red-200';
-      case 'Foodie': return 'bg-purple-100 text-purple-700 border-purple-200';
-      case 'Explorer': return 'bg-blue-100 text-blue-700 border-blue-200';
-      case 'Newbie': return 'bg-green-100 text-green-700 border-green-200';
-      default: return 'hidden';
+    if (restaurantData.address) {
+      window.open(
+        `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+          restaurantData.address
+        )}`,
+        "_blank"
+      );
     }
   };
 
+  // ==========================
+  // RENDER
+  // ==========================
   return (
-    <div className="py-6 animate-fade-in-up relative">
-      {/* Toast Notifikasi Share */}
-      {showShareToast && (
-        <div className="fixed top-24 left-1/2 transform -translate-x-1/2 z-50 bg-gray-900 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-2 animate-fade-in-up">
-          <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-          <span className="font-medium text-sm">Link berhasil disalin!</span>
+    <div className="py-4 sm:py-6 lg:py-8">
+      {/* Bar atas */}
+      <div className="flex items-center justify-between mb-4 sm:mb-6">
+        <button
+          onClick={onBack}
+          className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-rose-600"
+        >
+          <span className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">
+            ←
+          </span>
+          <span>Kembali</span>
+        </button>
+
+        <button
+          onClick={() => onToggleFavorite && onToggleFavorite(restaurantData.id)}
+          className={`inline-flex items-center justify-center w-9 h-9 rounded-full border ${
+            isFavorite ? "bg-rose-600 text-white" : "bg-white text-gray-500"
+          } shadow-sm hover:shadow-md transition`}
+        >
+          {isFavorite ? "♥" : "♡"}
+        </button>
+      </div>
+
+      {/* Error detail tempat */}
+      {placeError && (
+        <div className="mb-4 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-2 text-sm">
+          {placeError}
         </div>
       )}
 
-      {/* Navigasi */}
-      <button 
-        onClick={onBack}
-        className="flex items-center text-gray-600 hover:text-brand-600 mb-6 transition-colors font-medium"
-      >
-        <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-        </svg>
-        Kembali ke Pencarian
-      </button>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Kolom Kiri */}
-        <div className="lg:col-span-2 space-y-6">
-          
-          {/* Hero Image */}
-          <div className="relative h-[400px] rounded-2xl overflow-hidden shadow-lg group">
-            <img 
-              src={restaurant.imageUrl} 
-              alt={restaurant.name} 
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+      {/* Hero & info utama */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 mb-8">
+        {/* Foto utama + thumbnail */}
+        <div className="space-y-4">
+          <div className="relative rounded-2xl overflow-hidden shadow-lg bg-gray-100 h-64 sm:h-80 lg:h-[360px]">
+            <img
+              src={mainPhoto}
+              alt={restaurantData.name}
+              className="w-full h-full object-cover"
             />
-            
-            <div className="absolute top-4 right-4 z-10 flex gap-2">
-               {/* Tombol Share */}
-               <button
-                onClick={handleShare}
-                className="p-3 rounded-full backdrop-blur-md shadow-lg border border-white/20 bg-black/40 text-white hover:bg-black/60 transition-all transform hover:scale-110 active:scale-95"
-                title="Bagikan"
-              >
-                <svg className="w-6 h-6 fill-none stroke-current" viewBox="0 0 24 24" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                </svg>
-              </button>
-
-               {/* Tombol Wishlist */}
-               <button
-                onClick={() => onToggleFavorite(restaurant.id)}
-                className={`p-3 rounded-full backdrop-blur-md shadow-lg border border-white/20 ${
-                  isFavorite ? 'bg-brand-500 text-white' : 'bg-black/40 text-white hover:bg-black/60'
-                } transition-all transform hover:scale-110 active:scale-95`}
-                title={isFavorite ? "Hapus dari Wishlist" : "Tambah ke Wishlist"}
-              >
-                <svg
-                  className={`w-6 h-6 ${isFavorite ? 'fill-current' : 'fill-none stroke-current'}`}
-                  viewBox="0 0 24 24"
-                  strokeWidth="2"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
-              </button>
+            <div className="absolute top-4 left-4 bg-black/60 text-white text-xs px-3 py-1 rounded-full flex items-center gap-2">
+              <span>⭐ {avgRatingDisplay}</span>
+              <span>({reviewCountDisplay} ulasan)</span>
             </div>
-
-            <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/90 via-black/50 to-transparent p-6 sm:p-8">
-              <span className="bg-brand-600 text-white px-3 py-1 rounded text-xs font-bold uppercase tracking-wide mb-2 inline-block">
-                {restaurant.category}
-              </span>
-              <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2 shadow-sm">{restaurant.name}</h1>
-              <div className="flex items-center gap-4 text-white/90 text-sm sm:text-base">
-                 <div className="flex items-center gap-2">
-                   <span className="text-secondary-500 text-lg font-bold">★ {restaurant.rating}</span>
-                   <span className="opacity-75">({restaurant.reviews} ulasan)</span>
-                 </div>
-                 <span className="w-1 h-1 bg-white rounded-full"></span>
-                 <span>{restaurant.city}</span>
-              </div>
-            </div>
+            <button
+              onClick={openInMaps}
+              className="absolute bottom-4 right-4 bg-white/90 backdrop-blur px-4 py-2 rounded-full text-xs font-medium text-gray-800 shadow hover:bg-white"
+            >
+              Lihat di Maps
+            </button>
           </div>
 
-          {/* Deskripsi */}
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Tentang Restoran</h2>
-            <p className="text-gray-700 leading-relaxed text-lg">
-              {restaurant.description}
+          {photos.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {photos.map((url, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setActivePhotoIndex(idx)}
+                  className={`relative w-20 h-16 rounded-xl overflow-hidden border ${
+                    activePhotoIndex === idx
+                      ? "border-rose-500 ring-2 ring-rose-300"
+                      : "border-gray-200"
+                  } flex-shrink-0`}
+                >
+                  <img
+                    src={url}
+                    alt={`Foto ${idx + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Info text */}
+        <div className="space-y-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 mb-1">
+              {restaurantData.name || "Nama Restoran"}
+            </h1>
+            <p className="text-sm text-gray-500">
+              {restaurantData.city_name ||
+                restaurantData.city ||
+                "Kota tidak diketahui"}
             </p>
           </div>
 
-          {/* Form Input Review (Hanya muncul jika login) */}
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Tulis Ulasan Anda</h3>
-            
-            {user ? (
-                <form onSubmit={handleSubmitReview} className="space-y-4">
-                    <div className="flex items-center gap-2 mb-2">
-                        <span className="text-sm text-gray-600">Rating:</span>
-                        <div className="flex cursor-pointer">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                                <svg
-                                    key={star}
-                                    onClick={() => setNewRating(star)}
-                                    className={`w-8 h-8 transition-colors ${star <= newRating ? 'text-secondary-500' : 'text-gray-300 hover:text-secondary-400'}`}
-                                    fill="currentColor"
-                                    viewBox="0 0 20 20"
-                                >
-                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                </svg>
-                            ))}
-                        </div>
-                    </div>
-
-                    <textarea
-                        value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
-                        placeholder="Bagaimana pengalaman makan Anda? (Rasa, Pelayanan, Suasana)"
-                        className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-brand-500 focus:border-transparent min-h-[100px]"
-                        required
-                    />
-
-                    <div className="flex flex-col sm:flex-row justify-between gap-4">
-                        <div className="flex items-center gap-4">
-                            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer bg-gray-50 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-100 transition">
-                                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                <span>{mediaFile ? mediaFile.name : 'Tambah Foto'}</span>
-                                <input 
-                                    type="file" 
-                                    accept="image/*" 
-                                    onChange={(e) => e.target.files && setMediaFile(e.target.files[0])}
-                                    className="hidden"
-                                />
-                            </label>
-                            
-                            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-                                <input 
-                                    type="checkbox" 
-                                    checked={isAnonymous}
-                                    onChange={(e) => setIsAnonymous(e.target.checked)}
-                                    className="w-4 h-4 text-brand-600 rounded focus:ring-brand-500"
-                                />
-                                Kirim sebagai Anonim
-                            </label>
-                        </div>
-                        
-                        <button 
-                            type="submit" 
-                            className="bg-brand-600 text-white px-6 py-2 rounded-lg hover:bg-brand-700 transition font-medium"
-                        >
-                            Kirim Ulasan
-                        </button>
-                    </div>
-                </form>
-            ) : (
-                <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-300">
-                    <div className="text-4xl mb-3">🔒</div>
-                    <h4 className="text-gray-800 font-bold mb-2">Ingin membagikan pengalaman Anda?</h4>
-                    <p className="text-gray-500 text-sm mb-6">Silakan masuk ke akun Anda untuk menulis ulasan, memberi rating, dan berbagi foto.</p>
-                    <div className="flex justify-center gap-4">
-                        <button 
-                            onClick={onAuthRequest} 
-                            className="bg-brand-600 text-white px-6 py-2.5 rounded-lg hover:bg-brand-700 font-medium transition shadow-lg shadow-brand-500/20"
-                        >
-                            Masuk Sekarang
-                        </button>
-                    </div>
-                </div>
-            )}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <StarRating value={Number(avgRatingDisplay)} size="lg" />
+              <span className="font-semibold text-gray-900">
+                {avgRatingDisplay}
+              </span>
+            </div>
+            <span className="text-sm text-gray-500">
+              {reviewCountDisplay} ulasan
+            </span>
           </div>
 
-          {/* Daftar Review */}
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-            <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                Ulasan Komunitas
-                <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-xs">{localReviews.length}</span>
+          {restaurantData.address && (
+            <p className="text-sm text-gray-700 flex items-start gap-2">
+              <span>📍</span>
+              <span>{restaurantData.address}</span>
+            </p>
+          )}
+
+          {/* Tag / kategori sederhana */}
+          <div className="flex flex-wrap gap-2 mt-2">
+            {(restaurantData.categories || []).map((cat) => (
+              <span
+                key={cat.id || cat}
+                className="px-3 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-medium border border-rose-100"
+              >
+                {cat.name || cat}
+              </span>
+            ))}
+          </div>
+
+          {/* Info harga opsional */}
+          {restaurantData.min_price || restaurantData.max_price ? (
+            <div className="mt-2 text-sm text-gray-700">
+              💸 Perkiraan harga:{" "}
+              <span className="font-semibold">
+                {restaurantData.min_price
+                  ? `Rp${restaurantData.min_price.toLocaleString("id-ID")}`
+                  : "?"}{" "}
+                -{" "}
+                {restaurantData.max_price
+                  ? `Rp${restaurantData.max_price.toLocaleString("id-ID")}`
+                  : "?"}
+              </span>
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Tab navigasi konten */}
+      <div className="border-b border-gray-200 mb-4">
+        <nav className="-mb-px flex gap-4 text-sm">
+          <button
+            onClick={() => setActiveSection("overview")}
+            className={`pb-3 border-b-2 ${
+              activeSection === "overview"
+                ? "border-rose-600 text-rose-600 font-semibold"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            Ringkasan
+          </button>
+          <button
+            onClick={() => setActiveSection("reviews")}
+            className={`pb-3 border-b-2 ${
+              activeSection === "reviews"
+                ? "border-rose-600 text-rose-600 font-semibold"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            Ulasan Pengunjung
+          </button>
+        </nav>
+      </div>
+
+      {/* Konten Ringkasan */}
+      {activeSection === "overview" && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
+            <h2 className="text-lg font-bold mb-2 text-gray-900">
+              Ringkasan Tempat
             </h2>
-            
-            <div className="space-y-8">
-                {localReviews.map((review) => (
-                    <div key={review.id} className="flex gap-4">
-                        <div className="flex flex-col items-center gap-1 pt-1">
-                            <button 
-                                onClick={() => handleVote(review.id, 'like')}
-                                className="text-gray-400 hover:text-brand-600 hover:bg-brand-50 p-1 rounded transition-colors"
-                            >
-                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
-                            </button>
-                            <span className="text-sm font-bold text-gray-700">
-                                {review.likes - review.dislikes}
-                            </span>
-                            <button 
-                                onClick={() => handleVote(review.id, 'dislike')}
-                                className="text-gray-400 hover:text-brand-600 hover:bg-brand-50 p-1 rounded transition-colors"
-                            >
-                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                            </button>
-                        </div>
+            <p className="text-sm text-gray-600">
+              {restaurantData.description ||
+                "Belum ada deskripsi lengkap. Namun restoran ini sudah terdaftar dan siap kamu coba!"}
+            </p>
+          </div>
 
-                        <div className="flex-1 pb-6 border-b border-gray-100 last:border-0 last:pb-0">
-                            <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden border border-gray-200">
-                                         {/* PANGGIL HELPER FUNCTION DI SINI */}
-                                         <img 
-                                            src={getReviewAvatar(review)}
-                                            alt={review.user}
-                                            className="w-full h-full object-cover"
-                                        />
-                                    </div>
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            {review.isAnonymous ? (
-                                                <span className="font-semibold text-gray-900 text-sm">Anonim</span>
-                                            ) : (
-                                                <button 
-                                                    onClick={() => onUserClick && onUserClick(review.user)}
-                                                    className="font-semibold text-gray-900 text-sm hover:underline hover:text-brand-600 cursor-pointer"
-                                                >
-                                                    {review.user}
-                                                </button>
-                                            )}
-                                            
-                                            {!review.isAnonymous && review.userLevel && (
-                                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase border ${getBadgeStyle(review.userLevel)}`}>
-                                                    {review.userLevel}
-                                                </span>
-                                            )}
-                                        </div>
-                                        <span className="text-xs text-gray-500">{review.date}</span>
-                                    </div>
-                                </div>
-                                <StarRating rating={review.rating} />
-                            </div>
-                            
-                            <p className="text-gray-700 text-sm leading-relaxed mt-2">
-                                {review.comment}
-                            </p>
+          {/* Stat rating di ringkasan */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
+            <h3 className="text-base font-bold text-gray-900 mb-4">
+              Statistik Rating
+            </h3>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="text-4xl font-extrabold text-rose-600">
+                  {avgRatingDisplay}
+                </div>
+                <div className="text-sm text-gray-600">
+                  <div>{reviewCountDisplay} ulasan</div>
+                  <div className="flex items-center gap-1 text-yellow-500">
+                    <StarRating value={Number(avgRatingDisplay)} size="sm" />
+                  </div>
+                </div>
+              </div>
 
-                            {review.mediaUrl && (
-                                <div className="mt-3">
-                                    <img 
-                                        src={review.mediaUrl} 
-                                        alt="Review attachment" 
-                                        className="rounded-lg max-h-48 object-cover border border-gray-200"
-                                    />
-                                </div>
-                            )}
-                        </div>
+              <div className="flex-1 space-y-1">
+                {[5, 4, 3, 2, 1].map((star) => {
+                  const count = reviewStats.distribution[star] || 0;
+                  const percent = reviewStats.count
+                    ? (count / reviewStats.count) * 100
+                    : 0;
+                  return (
+                    <div
+                      key={star}
+                      className="flex items-center gap-2 text-xs text-gray-500"
+                    >
+                      <span className="w-10 text-right">{star}★</span>
+                      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-rose-500"
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+                      <span className="w-10 text-right">{count}</span>
                     </div>
-                ))}
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
+      )}
 
-        {/* Sidebar Kanan */}
-        <div className="lg:col-span-1 space-y-6">
-             <div className="bg-white rounded-xl p-6 shadow-md border border-gray-100 sticky top-24">
-                <h3 className="font-bold text-lg text-gray-900 mb-4 border-b border-gray-100 pb-2">Informasi</h3>
-                
-                <ul className="space-y-4">
-                    <li className="flex items-start gap-3">
-                        <div className="mt-1 p-2 bg-brand-50 text-brand-600 rounded-lg">
-                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                        </div>
-                        <div>
-                            <span className="block text-xs text-gray-500 font-medium uppercase">Alamat</span>
-                            <p className="text-gray-800 text-sm font-medium">{restaurant.address}</p>
-                        </div>
-                    </li>
-
-                    <li className="flex items-start gap-3">
-                        <div className="mt-1 p-2 bg-blue-50 text-blue-600 rounded-lg">
-                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        </div>
-                        <div>
-                            <span className="block text-xs text-gray-500 font-medium uppercase">Jam Buka</span>
-                            <p className="text-gray-800 text-sm font-medium">{restaurant.openHours}</p>
-                        </div>
-                    </li>
-
-                    <li className="flex items-start gap-3">
-                        <div className="mt-1 p-2 bg-green-50 text-green-600 rounded-lg">
-                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        </div>
-                        <div>
-                            <span className="block text-xs text-gray-500 font-medium uppercase">Range Harga</span>
-                            <p className="text-gray-800 text-sm font-medium">{restaurant.priceRange}</p>
-                        </div>
-                    </li>
-                </ul>
-
-                <a 
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${restaurant.coordinates.lat},${restaurant.coordinates.lng}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-6 flex items-center justify-center gap-2 w-full bg-brand-600 hover:bg-brand-700 text-white text-center py-3 rounded-xl font-bold transition-all shadow-lg shadow-brand-500/30 transform hover:-translate-y-1"
+      {/* Konten Ulasan */}
+      {activeSection === "reviews" && (
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.1fr)] gap-6">
+          {/* Daftar ulasan */}
+          <div className="space-y-4">
+            {loadingReviews ? (
+              <div className="bg-white rounded-2xl border border-gray-100 p-6 text-center text-sm text-gray-500">
+                Memuat ulasan...
+              </div>
+            ) : localReviews.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-gray-100 p-6 text-center text-sm text-gray-500">
+                Belum ada ulasan. Jadilah yang pertama menulis review!
+              </div>
+            ) : (
+              localReviews.map((rev) => (
+                <div
+                  key={rev.id}
+                  className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-5 shadow-sm"
                 >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
-                    Arahkan Saya
-                </a>
-             </div>
+                  <div className="flex items-start justify-between gap-3">
+                    <button
+                      onClick={() =>
+                        rev.isAnonymous
+                          ? null
+                          : onUserClick && onUserClick(rev.userName)
+                      }
+                      className={`flex items-center gap-3 ${
+                        rev.isAnonymous ? "" : "hover:opacity-80"
+                      }`}
+                    >
+                      <img
+                        src={rev.userAvatar}
+                        alt={rev.userName}
+                        className="w-10 h-10 rounded-full object-cover border border-gray-200"
+                      />
+                      <div className="text-left">
+                        <div className="text-sm font-semibold text-gray-900">
+                          {rev.userName}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {rev.date
+                            ? new Date(rev.date).toLocaleDateString("id-ID", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              })
+                            : "Baru saja"}
+                        </div>
+                      </div>
+                    </button>
+
+                    <div className="flex items-center gap-1 text-yellow-500 text-sm">
+                      <StarRating value={rev.rating} size="sm" />
+                      <span className="text-xs font-semibold text-gray-700">
+                        {rev.rating?.toFixed ? rev.rating.toFixed(1) : rev.rating}
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="mt-3 text-sm text-gray-700 whitespace-pre-line">
+                    {rev.comment}
+                  </p>
+
+                  {rev.photos && rev.photos.length > 0 && (
+                    <div className="mt-3 flex gap-2">
+                      {rev.photos.map((url, idx) => (
+                        <a
+                          key={idx}
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="w-20 h-20 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0"
+                        >
+                          <img
+                            src={url}
+                            alt={`Foto review ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
+                    <button
+                      onClick={() => handleLikeReview(rev.id)}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-full border border-gray-200 hover:border-rose-500 hover:text-rose-600 transition text-xs"
+                    >
+                      👍{" "}
+                      <span className="font-medium">
+                        Bantu ({rev.likes || 0})
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+
+            {reviewsError && (
+              <div className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 px-3 py-2 rounded-lg">
+                {reviewsError}
+              </div>
+            )}
+          </div>
+
+          {/* Form tambah ulasan */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-6 shadow-sm">
+            <h3 className="text-base font-bold text-gray-900 mb-3">
+              Tulis Ulasanmu
+            </h3>
+
+            {!user && (
+              <div className="mb-3 text-xs text-gray-600 bg-gray-50 border border-dashed border-gray-200 px-3 py-2 rounded-lg">
+                Kamu perlu login sebelum bisa menulis ulasan.
+              </div>
+            )}
+
+            {submitError && (
+              <div className="mb-2 text-xs text-red-700 bg-red-50 border border-red-200 px-3 py-2 rounded-lg">
+                {submitError}
+              </div>
+            )}
+
+            {submitSuccess && (
+              <div className="mb-2 text-xs text-green-700 bg-green-50 border border-green-200 px-3 py-2 rounded-lg">
+                {submitSuccess}
+              </div>
+            )}
+
+            <form
+              className="space-y-4 mt-2"
+              onSubmit={handleSubmitReview}
+            >
+              {/* Rating */}
+              <div>
+                <p className="text-xs font-medium text-gray-700 mb-1">
+                  Rating
+                </p>
+                <StarRating
+                  value={newRating}
+                  onChange={setNewRating}
+                  interactive
+                />
+              </div>
+
+              {/* Komentar */}
+              <div>
+                <textarea
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
+                  rows={4}
+                  placeholder="Ceritakan pengalamanmu makan di sini..."
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                />
+              </div>
+
+              {/* Upload foto */}
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-gray-700">
+                  Tambah Foto (opsional)
+                </label>
+                <div className="flex items-center gap-3">
+                  <label className="inline-flex items-center px-3 py-2 border border-dashed border-gray-300 rounded-lg text-xs text-gray-600 cursor-pointer hover:border-rose-500 hover:text-rose-600">
+                    📷 Upload Foto
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleMediaChange}
+                    />
+                  </label>
+                  {mediaPreviewUrl && (
+                    <div className="w-16 h-16 rounded-lg overflow-hidden border border-gray-200">
+                      <img
+                        src={mediaPreviewUrl}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+                </div>
+                <p className="text-[11px] text-gray-400">
+                  Maksimal 1 foto untuk demo ini. Foto akan di-upload ke
+                  Supabase Storage.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 text-xs text-gray-600">
+                  <input
+                    type="checkbox"
+                    className="rounded border-gray-300 text-rose-600"
+                    checked={isAnonymous}
+                    onChange={(e) => setIsAnonymous(e.target.checked)}
+                  />
+                  Tampilkan sebagai anonim
+                </label>
+
+                <button
+                  type={user ? "submit" : "button"}
+                  onClick={
+                    user ? undefined : () => onAuthRequest && onAuthRequest()
+                  }
+                  disabled={submittingReview}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-rose-600 text-white text-xs font-semibold shadow hover:bg-rose-700 disabled:opacity-70"
+                >
+                  {submittingReview ? "Mengirim..." : "Kirim Ulasan"}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

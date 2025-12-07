@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LoginForm, RegisterForm } from '../components/AuthForms';
+import { LoginForm, RegisterForm } from '../components/Auth';
 
 const AuthPage = ({ onLogin }) => {
   const [isLoginMode, setIsLoginMode] = useState(true);
@@ -11,7 +11,7 @@ const AuthPage = ({ onLogin }) => {
           Selamat Datang di Makan Ki'
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Temukan kuliner terbaik di Makassar
+          Temukan kuliner terbaik di Indonesia
         </p>
       </div>
 

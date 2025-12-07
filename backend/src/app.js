@@ -46,7 +46,6 @@ app.get("/", (req, res) => {
 app.use("/auth", authRoutes);
 app.use("/categories", categoryRoutes);
 app.use("/cities", cityRoutes);
-app.use("/foods", foodRoutes);
 app.use("/places", placeRoutes);
 app.use("/reviews", reviewRoutes);
 app.use("/review-likes", reviewLikeRoutes);
@@ -60,7 +59,7 @@ app.use("/api", chatbotRoutes);
 
 app.use("/smart-search", smartSearchRoutes);
 app.use("/search", placeSearchRoutes);
-app.use("/map", mapRoutes);
+app.use("/maps", mapRoutes);
 
 // --- Supabase test route ---
 const  supabase = require("./supabase/supabaseClient");
