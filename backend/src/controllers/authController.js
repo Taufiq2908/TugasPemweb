@@ -1,5 +1,6 @@
 const supabase = require("../supabase/supabaseClient");
-const { v4: uuidv4 } = require("uuid");
+// PERUBAHAN DI SINI: Menggunakan crypto bawaan Node.js
+const crypto = require("crypto"); 
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const {
@@ -43,7 +44,9 @@ exports.registerUser = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const verificationToken = uuidv4();
+    
+    // PERUBAHAN DI SINI: Generate UUID menggunakan crypto
+    const verificationToken = crypto.randomUUID();
 
     // Insert user baru
     const { data: inserted, error: insertError } = await supabase
@@ -90,9 +93,6 @@ exports.registerUser = async (req, res) => {
   }
 };
 
-// =========================
-// VERIFY EMAIL
-// =========================
 // =========================
 // VERIFY EMAIL + AUTO LOGIN
 // =========================
@@ -238,7 +238,10 @@ exports.forgotPassword = async (req, res) => {
     }
 
     const user = users[0];
-    const resetToken = uuidv4();
+    
+    // PERUBAHAN DI SINI: Generate UUID menggunakan crypto
+    const resetToken = crypto.randomUUID();
+    
     const expireDate = new Date(Date.now() + 60 * 60 * 1000); // 1 jam dari sekarang
 
     const { error: updateError } = await supabase
@@ -264,7 +267,7 @@ exports.forgotPassword = async (req, res) => {
     return res.json({
       message:
         "Jika email terdaftar, link reset password telah dikirim ke email Anda."
-    });
+      });
   } catch (err) {
     console.error("forgotPassword error:", err);
     res.status(500).json({ error: err.message });
