@@ -1,0 +1,895 @@
+{
+  "info": {
+    "name": "MakanKi Backend API (Full)",
+    "_postman_id": "makan-ki-backend-api",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Taufiq\",\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Register user baru."
+          }
+        },
+        {
+          "name": "Verify Email",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/verify?token=<verification_token>",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "verify"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "<verification_token>",
+                  "description": "Token verifikasi dari email."
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/forgot-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "forgot-password"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"<reset_token>\",\n  \"newPassword\": \"newPass123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/reset-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "reset-password"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cities",
+      "item": [
+        {
+          "name": "Detect Nearby City",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/cities/detect-nearby?lat=-5.147665&lon=119.432731",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cities",
+                "detect-nearby"
+              ],
+              "query": [
+                {
+                  "key": "lat",
+                  "value": "-5.147665",
+                  "description": "Latitude user."
+                },
+                {
+                  "key": "lon",
+                  "value": "119.432731",
+                  "description": "Longitude user."
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get All Cities",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/cities",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cities"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add City",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Makassar\",\n  \"lat\": -5.147665,\n  \"lon\": 119.432731\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/cities",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cities"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get City By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/cities/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cities",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update City",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Makassar Updated\",\n  \"lat\": -5.15,\n  \"lon\": 119.43\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/cities/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cities",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete City",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/cities/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cities",
+                "1"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Categories",
+      "item": [
+        {
+          "name": "Get All Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/categories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categories"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Places By Category",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/categories/1/places",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categories",
+                "1",
+                "places"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Places",
+      "item": [
+        {
+          "name": "Get All Places",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/places",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "places"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Places By City",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/places/city/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "places",
+                "city",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Place By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/places/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "places",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search Places",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/places/search?q=coto&city_id=1&lat=-5.147665&lon=119.432731&radius=5&halal=1&rating_min=4&sort=rating_desc",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "places",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "coto",
+                  "description": "Keyword pencarian."
+                },
+                {
+                  "key": "city_id",
+                  "value": "1",
+                  "description": "ID kota (opsional)."
+                },
+                {
+                  "key": "lat",
+                  "value": "-5.147665",
+                  "description": "Latitude user (opsional)."
+                },
+                {
+                  "key": "lon",
+                  "value": "119.432731",
+                  "description": "Longitude user (opsional)."
+                },
+                {
+                  "key": "radius",
+                  "value": "5",
+                  "description": "Radius kilometer (opsional)."
+                },
+                {
+                  "key": "halal",
+                  "value": "1",
+                  "description": "1 jika hanya menampilkan halal."
+                },
+                {
+                  "key": "rating_min",
+                  "value": "4",
+                  "description": "Rating minimal."
+                },
+                {
+                  "key": "sort",
+                  "value": "rating_desc",
+                  "description": "Opsi urut (misalnya rating_desc)."
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Maps",
+      "item": [
+        {
+          "name": "Get Places for Map",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/maps/places?city_id=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "maps",
+                "places"
+              ],
+              "query": [
+                {
+                  "key": "city_id",
+                  "value": "1",
+                  "description": "Filter berdasarkan city_id (opsional)."
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Nearby Places",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/maps/nearby?lat=-5.147665&lon=119.432731&radius=5&limit=50&city_id=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "maps",
+                "nearby"
+              ],
+              "query": [
+                {
+                  "key": "lat",
+                  "value": "-5.147665"
+                },
+                {
+                  "key": "lon",
+                  "value": "119.432731"
+                },
+                {
+                  "key": "radius",
+                  "value": "5"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "city_id",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Single Place For Map",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/maps/place/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "maps",
+                "place",
+                "1"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Get Logged-in User Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/profile",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "profile"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Check Location & Notify Wishlist",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 1,\n  \"lat\": -5.147665,\n  \"lon\": 119.432731\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/users/check-location",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "check-location"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get User Profile + Reviews",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/1/reviews",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "1",
+                "reviews"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reviews",
+      "item": [
+        {
+          "name": "Get Reviews By Place",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reviews/place/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reviews",
+                "place",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add Review",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 1,\n  \"place_id\": 1,\n  \"rating\": 5,\n  \"comment\": \"Enak sekali\",\n  \"is_anonymous\": false,\n  \"photo_urls\": [\"https://example.com/photo.jpg\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/reviews",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reviews"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Legacy Like Review (PATCH, kemungkinan tidak dipakai)",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reviews/1/like",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reviews",
+                "1",
+                "like"
+              ]
+            },
+            "description": "Route lama di reviewRoutes.js, controller likeReview belum terdefinisi. Lebih baik gunakan endpoint di ReviewLike."
+          }
+        },
+        {
+          "name": "Like Review (Protected)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/reviews/1/like",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reviews",
+                "1",
+                "like"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Unlike Review (Protected)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/reviews/1/unlike",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reviews",
+                "1",
+                "unlike"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Review Likes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reviews/1/likes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reviews",
+                "1",
+                "likes"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Wishlist",
+      "item": [
+        {
+          "name": "Get Wishlist By User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/wishlists/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "wishlists",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add To Wishlist",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 1,\n  \"place_id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/wishlists",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "wishlists"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Remove From Wishlist",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 1,\n  \"place_id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/wishlists",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "wishlists"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Smart Search",
+      "item": [
+        {
+          "name": "Smart Search",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"mau makan daging murah dekat sini\",\n  \"city_id\": 1,\n  \"userLat\": -5.147665,\n  \"userLon\": 119.432731\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/smart-search",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "smart-search"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Misc",
+      "item": [
+        {
+          "name": "Root Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "Test Supabase",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/test-supabase",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "test-supabase"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000"
+    },
+    {
+      "key": "token",
+      "value": ""
+    }
+  ]
+}
