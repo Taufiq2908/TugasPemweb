@@ -11,10 +11,6 @@ app.use(express.json());
 app.use(cors());
 app.use(express.urlencoded({ extended: true }));
 
-// --- VIEW ENGINE SETUP ---
-app.set("views", path.join(__dirname, "../views"));
-app.set("view engine", "ejs");
-app.use(express.static(path.join(__dirname, "../public")));
 
 // --- IMPORT ROUTES API ---
 const authRoutes = require("./routes/authRoutes");
@@ -38,9 +34,6 @@ app.use("/users", require("./routes/userProfileRoutes"));
 app.use("/maps", require("./routes/mapRoutes"));
 app.use("/api", chatbotRoutes); // <--- PENTING agar chatbot aktif
 
-// --- IMPORT ROUTES WEB ---
-const viewRoutes = require("./routes/viewRoutes");
-app.use("/", viewRoutes);
 
 // Jalankan server
 const PORT = process.env.PORT || 5000;
