@@ -3,7 +3,7 @@ const router = express.Router();
 const controller = require("../controllers/cityController");
 
 // ❗ TARUH INI PALING ATAS
-router.get("/detect-nearby", controller.detectNearbyCity);
+router.get("/detect", controller.detectNearbyCity);
 
 // ROUTE BIASA
 router.get("/", controller.getCities);

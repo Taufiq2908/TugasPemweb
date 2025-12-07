@@ -17,22 +17,6 @@ import "./App.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-// helper untuk konversi price_range string
-const derivePriceRangeLabel = (priceRangeString) => {
-  if (!priceRangeString || typeof priceRangeString !== "string") return "Sedang";
-  const nums = priceRangeString.match(/\d+/g);
-  if (!nums) return "Sedang";
-  const values = nums
-    .map((n) => parseInt(n, 10))
-    .filter((n) => !Number.isNaN(n));
-  if (!values.length) return "Sedang";
-
-  const avg = values.reduce((a, b) => a + b, 0) / values.length;
-  if (avg < 20000) return "Murah";
-  if (avg < 50000) return "Sedang";
-  return "Mahal";
-};
-
 // map data backend → shape RestaurantCard
 const mapPlaceFromApi = (p) => ({
   id: p.id,
@@ -42,13 +26,18 @@ const mapPlaceFromApi = (p) => ({
   rating: p.average_rating || 0,
   reviews: p.total_reviews || 0,
   description: p.description || "",
-  priceRange: derivePriceRangeLabel(p.price_range),
+
+  // 🔥 langsung pakai nilai database
+  priceRange: p.price_range || "-",
+  openHours: p.opening_hours || "Jam tidak tersedia",
+
   coverImage:
     p.photos?.[0] ||
     "https://images.pexels.com/photos/70497/pexels-photo-70497.jpeg",
   lat: p.lat,
   lon: p.lon,
 });
+
 
 const FAVORITE_CATEGORIES = [
   { key: "local", label: "Makanan Daerah" },
@@ -1087,8 +1076,7 @@ function App() {
               <span>🍛</span> Makan Ki'
             </h3>
             <p className="text-sm">
-              Platform pencarian kuliner terpercaya di beberapa kota besar
-              Indonesia. Temukan rasa autentik nusantara.
+              Platform pencarian kuliner terpercaya di Indonesia. Temukan rasa autentik nusantara.
             </p>
           </div>
           <div>
@@ -1109,7 +1097,7 @@ function App() {
           </div>
         </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 pt-8 border-t border-gray-800 text-center text-sm">
-          © 2077 Makan Ki'. Dibuat oleh 3 penimpa.
+          © 2027 Makan Ki'
         </div>
       </footer>
     </div>
