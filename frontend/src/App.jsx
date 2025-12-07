@@ -127,19 +127,22 @@ function App() {
           );
           const data = await res.json();
 
-          if (res.ok && data.cityId) {
-            const cityId = String(data.cityId);
-            const city =
-              cityList.find((c) => String(c.id) === cityId) || null;
+          if (res.ok && (data.cityId || data.city?.id)) {
+            const cityId = String(data.cityId || data.city.id);
+            const cityName = data.cityName || data.city?.name;
+
+            const city = cityList.find((c) => String(c.id) === cityId) || null;
 
             setUserCityId(cityId);
             setSelectedCityId(cityId);
+
             localStorage.setItem("makanKi_userCityId", cityId);
             localStorage.setItem("makanKi_selectedCityId", cityId);
 
-            setCurrentCityName(city?.name || data.cityName || "Kota Anda");
+            setCurrentCityName(city?.name || cityName || "Kota Anda");
             setLocationStatus("success");
-          } else {
+          }
+          else {
             console.warn("Kota tidak terdaftar di sistem.");
             setLocationStatus("error");
             setIsCityModalOpen(true);
