@@ -1,48 +1,70 @@
+// backend/src/app.js
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
-require("dotenv").config();
+const dotenv = require("dotenv");
 
-// Inisialisasi express
+dotenv.config();
+
+// Import routes
+const authRoutes = require("./routes/authRoutes");
+const categoryRoutes = require("./routes/categoryRoutes");
+const cityRoutes = require("./routes/cityRoutes");
+const foodRoutes = require("./routes/foodRoutes");
+const placeRoutes = require("./routes/placeRoutes");
+const reviewRoutes = require("./routes/reviewRoutes");
+const reviewLikeRoutes = require("./routes/reviewLikeRoutes");
+const userRoutes = require("./routes/userRoutes");
+const wishlistRoutes = require("./routes/wishlistRoutes");
+const userProfileRoutes = require("./routes/userProfileRoutes");
+const userLocationRoutes = require("./routes/userLocationRoutes");
+const chatbotRoutes = require("./routes/chatbot.routes");
+const smartSearchRoutes = require("./routes/smartSearchRoutes");
+const placeSearchRoutes = require("./routes/placeSearchRoutes");
+const mapRoutes = require("./routes/mapRoutes");
+
 const app = express();
 
-// --- MIDDLEWARE ---
+// CORS
+const corsOptions = {
+  origin: process.env.FRONTEND_URL || "*",
+
+  credentials: true,
+};
+app.use(cors(corsOptions));
+
+// Body parser
 app.use(express.json());
-app.use(cors());
 app.use(express.urlencoded({ extended: true }));
 
-
-// --- IMPORT ROUTES API ---
-const authRoutes = require("./routes/authRoutes");
-const cityRoutes = require("./routes/cityRoutes");
-const userRoutes = require("./routes/userRoutes");
-const chatbotRoutes = require("./routes/chatbot.routes"); // <--- FIX: Gabungkan dari commit kamu
-
-// Prefix route API
-app.use("/auth", authRoutes);
-app.use("/cities", cityRoutes);
-app.use("/users", userRoutes);
-app.use("/places", require("./routes/placeRoutes"));
-app.use("/categories", require("./routes/categoryRoutes"));
-app.use("/reviews", require("./routes/reviewRoutes"));
-app.use("/wishlists", require("./routes/wishlistRoutes"));
-app.use("/smart-search", require("./routes/smartSearchRoutes"));
-// app.use("/places", require("./routes/placeSearchRoutes"));
-app.use("/users", require("./routes/userLocationRoutes"));
-app.use("/review-likes", require("./routes/reviewLikeRoutes"));
-app.use("/users", require("./routes/userProfileRoutes"));
-app.use("/maps", require("./routes/mapRoutes"));
-app.use("/api", chatbotRoutes); // <--- PENTING agar chatbot aktif
-
-
-const PORT = process.env.PORT || 5000;
-
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
+// Health check
+app.get("/", (req, res) => {
+  res.json({ message: "API Makanki is running" });
 });
 
-// --- TEST SUPABASE (Opsional) ---
-const supabase = require("./supabase/supabaseClient");
+// Routes
+app.use("/auth", authRoutes);
+app.use("/categories", categoryRoutes);
+app.use("/cities", cityRoutes);
+app.use("/foods", foodRoutes);
+app.use("/places", placeRoutes);
+app.use("/reviews", reviewRoutes);
+app.use("/review-likes", reviewLikeRoutes);
+app.use("/users", userRoutes);
+app.use("/wishlist", wishlistRoutes);
+app.use("/profile", userProfileRoutes);
+app.use("/location", userLocationRoutes);
+
+// Chatbot tetap di /api/chatbot
+app.use("/api", chatbotRoutes);
+
+app.use("/smart-search", smartSearchRoutes);
+app.use("/search", placeSearchRoutes);
+app.use("/map", mapRoutes);
+
+// --- Supabase test route ---
+const  supabase = require("./supabase/supabaseClient");
+
 app.get("/test-supabase", async (req, res) => {
   const { data, error } = await supabase.from("cities").select("*").limit(1);
   if (error) {
@@ -51,3 +73,15 @@ app.get("/test-supabase", async (req, res) => {
   }
   res.json({ success: true, data });
 });
+
+// --- LOCAL DEV ONLY: jalankan server jika file ini dijalankan langsung ---
+//  node src/app.js  --> jalan di localhost:5000
+if (require.main === module) {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
+
+// --- EXPORT UNTUK SERVERLESS (Vercel akan pakai ini) ---
+module.exports = app;
