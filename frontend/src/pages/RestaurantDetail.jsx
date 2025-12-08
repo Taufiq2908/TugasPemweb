@@ -270,6 +270,7 @@ export const RestaurantDetail = ({
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
+          user_id: user.id,
           place_id: placeId,
           rating: newRating,
           comment: newComment.trim(),
