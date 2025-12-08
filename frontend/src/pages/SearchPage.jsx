@@ -49,21 +49,24 @@ export const SearchPage = ({
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const res = await fetch(`${API_BASE}/categories?is_display=true`);
+        const res = await fetch(`${API_BASE}/categories`);
         const data = await res.json();
+
         if (res.ok) {
-          const list = data.data || data.categories || [];
-          setCategories(list);
+          // tampilkan hanya kategori utama (is_display = true)
+          const visibleCategories = data.filter(cat => cat.is_display);
+          setCategories(visibleCategories);
         } else {
-          console.error('Gagal mengambil kategori:', data.message);
+          console.error("Gagal mengambil kategori:", data.message);
         }
       } catch (err) {
-        console.error('Error fetch kategori:', err);
+        console.error("Error fetch kategori:", err);
       }
     };
 
     fetchCategories();
   }, []);
+
 
   // --- HELPER: KONVERSI price_range string → label Murah/Sedang/Mahal ---
   const derivePriceRangeLabel = (priceRangeString) => {

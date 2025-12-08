@@ -12,7 +12,10 @@ export const Wishlist = ({ user }) => {
   // 1. LOAD WISHLIST USER
   // ================================
   const fetchWishlist = async () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      setLoading(false); // supaya tidak loading terus
+      return;
+    }
 
     try {
       setLoading(true);
