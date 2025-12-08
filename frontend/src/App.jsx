@@ -304,7 +304,7 @@ function App() {
   // WISHLIST / FAVORITE (GLOBAL)
   // ==========================
   const toggleFavorite = async (placeId) => {
-    if (!token) {
+    if (!user || !token) {
       alert("Silakan login untuk menambah ke wishlist.");
       return;
     }
@@ -320,7 +320,7 @@ function App() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          user_id: user.id,
+          user_id: user.id,   // sekarang aman, karena user pasti ada
           place_id: placeId,
         }),
       });
@@ -337,6 +337,7 @@ function App() {
       console.error("Error toggle wishlist:", err);
     }
   };
+
 
   // ==========================
   // HANDLER AUTH
