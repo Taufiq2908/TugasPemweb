@@ -70,6 +70,15 @@ function mapBackendReview(raw) {
   };
 }
 
+import { toggleWishlist } from "../utils/wishlist";
+
+const handleWishlist = async () => {
+  const result = await toggleWishlist(user?.id, restaurantData.id, isFavorite);
+  if (result.success) {
+    onToggleFavorite && onToggleFavorite(restaurantData.id);
+  }
+};
+
 export const RestaurantDetail = ({
   restaurant, // initial data dari mock / list
   reviews: initialReviews = [], // masih dipakai sebagai fallback kalau API gagal
@@ -287,7 +296,7 @@ export const RestaurantDetail = ({
       }
 
       // Backend mengirim satu review baru -> map dan prepend
-      const mapped = mapBackendReview(data.data || data);
+      const mapped = mapBackendReview(data.review);
       setLocalReviews((prev) => [mapped, ...prev]);
 
       setSubmitSuccess("Ulasan berhasil dikirim. Terima kasih! 🙌");
@@ -416,13 +425,14 @@ export const RestaurantDetail = ({
         </button>
 
         <button
-          onClick={() => onToggleFavorite && onToggleFavorite(restaurantData.id)}
+          onClick={handleWishlist}
           className={`inline-flex items-center justify-center w-9 h-9 rounded-full border ${
             isFavorite ? "bg-rose-600 text-white" : "bg-white text-gray-500"
           } shadow-sm hover:shadow-md transition`}
         >
           {isFavorite ? "♥" : "♡"}
         </button>
+
       </div>
 
       {/* Error detail tempat */}
