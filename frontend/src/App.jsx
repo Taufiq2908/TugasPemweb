@@ -313,7 +313,7 @@ function App() {
     const method = isFav ? "DELETE" : "POST";
 
     try {
-      const res = await fetch(`${API_BASE}/wishlists`, {
+      const res = await fetch(`${API_BASE}/wishlist`, {
         method,
         headers: {
           "Content-Type": "application/json",

@@ -123,9 +123,14 @@ exports.addReview = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      review,
+      review: {
+        ...review,
+        user_name: user.name,
+        user_avatar_url: user.avatar_url || null
+      },
       new_user_level: newLevel
     });
+
   } catch (err) {
     console.error("addReview error:", err);
     return res.status(500).json({ error: err.message });
