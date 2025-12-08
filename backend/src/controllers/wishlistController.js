@@ -5,7 +5,8 @@ const supabase = require("../supabase/supabaseClient");
 // =====================================================
 exports.getWishlistByUser = async (req, res) => {
   try {
-    const userId = req.params.userId;
+    const userId = parseInt(req.params.userId, 10);
+
 
     const { data, error } = await supabase
       .from("wishlists")
