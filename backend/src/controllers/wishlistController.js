@@ -5,7 +5,8 @@ const supabase = require("../supabase/supabaseClient");
 // =====================================================
 exports.getWishlistByUser = async (req, res) => {
   try {
-    const userId = parseInt(req.params.userId, 10); // ✅ pastikan integer
+    // ❗ FIX: userId adalah UUID → jangan parseInt
+    const userId = req.params.userId;
 
     const { data, error } = await supabase
       .from("wishlists")
@@ -14,7 +15,7 @@ exports.getWishlistByUser = async (req, res) => {
         place_id,
         places (*)
       `)
-      .eq("user_id", userId);
+      .eq("user_id", userId); // cocok STRING UUID
 
     if (error) throw error;
 
@@ -38,7 +39,8 @@ exports.addToWishlist = async (req, res) => {
         .json({ message: "user_id dan place_id wajib diisi." });
     }
 
-    const userId = parseInt(user_id, 10);
+    // ❗ FIX: user_id = UUID (STRING), place_id saja integer
+    const userId = user_id; 
     const placeId = parseInt(place_id, 10);
 
     // Cek apakah sudah ada
@@ -47,9 +49,9 @@ exports.addToWishlist = async (req, res) => {
       .select("*")
       .eq("user_id", userId)
       .eq("place_id", placeId)
-      .single();
+      .maybeSingle(); // safe version
 
-    if (!existsError && existing) {
+    if (existing) {
       return res.status(400).json({ message: "Sudah ada di wishlist." });
     }
 
@@ -85,7 +87,8 @@ exports.removeFromWishlist = async (req, res) => {
         .json({ message: "user_id dan place_id wajib diisi." });
     }
 
-    const userId = parseInt(user_id, 10);
+    // ❗ FIX: user_id tetap STRING (UUID)
+    const userId = user_id;
     const placeId = parseInt(place_id, 10);
 
     const { error } = await supabase
