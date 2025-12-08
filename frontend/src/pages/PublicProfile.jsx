@@ -14,7 +14,7 @@ export const PublicProfile = ({ userId, onBack }) => {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const res = await fetch(`${API_BASE}/users/${userId}`);
+        const res = await fetch(`${API_BASE}/users${userId}`);
 
         const data = await res.json();
         if (!res.ok) {

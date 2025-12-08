@@ -58,7 +58,7 @@ export const Profile = ({ user, onLogout, onUpdateUser }) => {
   useEffect(() => {
     if (!user?.id) return;
 
-    fetch(`${API_BASE}/users/${user.id}/reviews`)
+    fetch(`${API_BASE}/profile/${user.id}/reviews`)
       .then(res => res.json())
       .then(data => {
         if (data && data.reviews) {

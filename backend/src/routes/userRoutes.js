@@ -7,4 +7,5 @@ const router = express.Router();
 // GET /users/profile → butuh token
 router.get("/profile", protect, getProfile);
 
+
 module.exports = router;

@@ -52,28 +52,27 @@ exports.getReviewsByPlace = async (req, res) => {
 // =============================================
 // ADD REVIEW — otomatis hitung rating & level user
 // =============================================
-exports.addReview = async (req, res) => {
-  try {
-    const {
-      user_id,
-      place_id,
-      rating,
-      comment,
-      is_anonymous,
-      photo_urls
-    } = req.body;
+  exports.addReview = async (req, res) => {
+    try {
+      const {
+        user_id,
+        place_id,
+        rating,
+        comment,
+        is_anonymous,
+        photo_urls
+      } = req.body;
 
-    if (!user_id || !place_id || !rating) {
-      return res.status(400).json({
-        message: "user_id, place_id, dan rating wajib diisi."
-      });
-    }
+      if (!user_id || !place_id || !rating) {
+        return res.status(400).json({
+          message: "user_id, place_id, dan rating wajib diisi."
+        });
+      }
 
-    // 1. Insert review
-    const { data: review, error: insertError } = await supabase
-      .from("reviews")
-      .insert([
-        {
+      // INSERT review ke Supabase
+      const { data: review, error: insertError } = await supabase
+        .from("reviews")
+        .insert([{
           user_id,
           place_id,
           rating,
@@ -81,61 +80,76 @@ exports.addReview = async (req, res) => {
           is_anonymous: is_anonymous ?? false,
           photo_urls: photo_urls ?? [],
           thumbs_up_count: 0
-        }
-      ])
-      .select()
-      .single();
+        }])
+        .select()
+        .single();
 
-    if (insertError) throw insertError;
+      if (insertError) throw insertError;
 
-    // 2. Recalculate rating restoran
-    await recalculatePlaceRating(place_id);
+      // Ambil info user dari tabel users
+      const { data: userData } = await supabase
+        .from("users")
+        .select("id, name, photo_url")
+        .eq("id", user_id)
+        .single();
 
-    // 3. Update user level
-    const { data: userReviews } = await supabase
-      .from("reviews")
-      .select("id")
-      .eq("user_id", user_id);
+      // Recalculate rating tempat
+      await recalculatePlaceRating(place_id);
 
-    const reviewCount = userReviews.length;
+      // Hitung ulang review & like user
+      const { data: userReviews } = await supabase
+        .from("reviews")
+        .select("id")
+        .eq("user_id", user_id);
 
-    // Hitung total like diterima user
-    const { data: likeRec } = await supabase
-      .from("reviews")
-      .select("thumbs_up_count")
-      .eq("user_id", user_id);
+      const reviewCount = userReviews.length;
 
-    const likeReceived = likeRec.reduce(
-      (acc, r) => acc + r.thumbs_up_count,
-      0
-    );
+      const { data: likeRec } = await supabase
+        .from("reviews")
+        .select("thumbs_up_count")
+        .eq("user_id", user_id);
 
-    const newLevel = calculateUserLevel(reviewCount, likeReceived);
+      const likeReceived = likeRec.reduce(
+        (acc, r) => acc + r.thumbs_up_count,
+        0
+      );
 
-    await supabase
-      .from("users")
-      .update({
-        review_count: reviewCount,
-        like_received: likeReceived,
-        level: newLevel
-      })
-      .eq("id", user_id);
+      const newLevel = calculateUserLevel(reviewCount, likeReceived);
 
-    return res.status(201).json({
-      success: true,
-      review: {
-        ...review,
-        user_name: user.name,
-        user_avatar_url: user.avatar_url || null
-      },
-      new_user_level: newLevel
-    });
+      await supabase
+        .from("users")
+        .update({
+          review_count: reviewCount,
+          like_received: likeReceived,
+          level: newLevel
+        })
+        .eq("id", user_id);
 
-  } catch (err) {
-    console.error("addReview error:", err);
-    return res.status(500).json({ error: err.message });
-  }
-};
+      // Generate avatar jika user tidak punya photo_url
+      const avatarUrl = userData?.photo_url
+        ? userData.photo_url
+        : `https://ui-avatars.com/api/?name=${encodeURIComponent(
+            userData?.name || "User"
+          )}&background=e11d48&color=fff`;
+
+      // RESPONSE lengkap untuk frontend
+      return res.status(201).json({
+        success: true,
+        review: {
+          ...review,
+          user_name: userData?.name || "Pengguna",
+          user_avatar_url: avatarUrl
+        },
+        new_user_level: newLevel
+      });
+
+    } catch (err) {
+      console.error("addReview error:", err);
+      return res.status(500).json({ error: err.message });
+    }
+  };
+
+
 
 // =============================================
 // DELETE REVIEW — rating & user level update

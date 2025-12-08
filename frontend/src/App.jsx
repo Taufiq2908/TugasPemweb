@@ -343,25 +343,48 @@ function App() {
   // HANDLER AUTH
   // ==========================
   const handleLogin = (userData) => {
+
+    // reset kota agar user harus set lokasi lagi
+    localStorage.removeItem("makanKi_selectedCityId");
+    localStorage.removeItem("makanKi_userCityId");
+    localStorage.removeItem("userLat");
+    localStorage.removeItem("userLng");
+
+    setShowLocationModal(true);   // popup muncul lagi
+
     const fullUserData = {
       ...userData,
       city: userData.city || "Belum Diatur",
       totalUpvotes: userData.totalUpvotes || 0,
       avatarUrl: userData.avatarUrl || undefined,
     };
+
     setUser(fullUserData);
     setToken(localStorage.getItem("makanKi_token") || "");
+
     setCurrentPage("home");
-    setIsMobileMenuOpen(false);
   };
+
 
   const handleLogout = () => {
     setUser(null);
     setToken("");
+
+    // Hapus token
     localStorage.removeItem("makanKi_token");
+
+    // RESET lokasi
+    localStorage.removeItem("makanKi_selectedCityId");
+    localStorage.removeItem("makanKi_userCityId");
+    localStorage.removeItem("userLat");
+    localStorage.removeItem("userLng");
+
+    // Paksa popup muncul lagi
+    setShowLocationModal(true);
+
     setCurrentPage("home");
-    setIsMobileMenuOpen(false);
   };
+
 
   const handleUpdateUser = (updatedUser) => {
     setUser(updatedUser);
@@ -453,7 +476,7 @@ function App() {
         if (!selectedUserProfile) return null;
         return (
           <PublicProfile
-            user={selectedUserProfile}
+            userId={selectedUserProfile}
             onBack={() => setCurrentPage("detail")}
           />
         );
