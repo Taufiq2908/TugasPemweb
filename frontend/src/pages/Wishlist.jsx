@@ -114,7 +114,7 @@ export const Wishlist = ({ user }) => {
               >
                 {/* GAMBAR */}
                 <img
-                  src={place.image_url || "/placeholder.jpg"}
+                  src={(place.photos?.[0]) || "/placeholder.jpg"}
                   alt={place.name}
                   className="h-40 w-full object-cover"
                 />
