@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import myPhoto from '../assets/ohim.jpeg';
+import { checkUserLocation } from "../helpers/checkUserLocation";
 
 // ================================
 // CONFIG API BASE URL
@@ -74,6 +75,7 @@ export const LoginForm = ({ onLogin, onSwitchMode }) => {
       };
 
       onLogin(userData);
+      checkUserLocation(userData); 
 
     } catch (err) {
       setError("Terjadi kesalahan koneksi.");
