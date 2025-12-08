@@ -5,8 +5,7 @@ const supabase = require("../supabase/supabaseClient");
 // =====================================================
 exports.getWishlistByUser = async (req, res) => {
   try {
-    const userId = parseInt(req.params.userId, 10);
-
+    const userId = parseInt(req.params.userId, 10); // ✅ pastikan integer
 
     const { data, error } = await supabase
       .from("wishlists")
@@ -34,15 +33,20 @@ exports.addToWishlist = async (req, res) => {
     const { user_id, place_id } = req.body;
 
     if (!user_id || !place_id) {
-      return res.status(400).json({ message: "user_id dan place_id wajib diisi." });
+      return res
+        .status(400)
+        .json({ message: "user_id dan place_id wajib diisi." });
     }
+
+    const userId = parseInt(user_id, 10);
+    const placeId = parseInt(place_id, 10);
 
     // Cek apakah sudah ada
     const { data: existing, error: existsError } = await supabase
       .from("wishlists")
       .select("*")
-      .eq("user_id", user_id)
-      .eq("place_id", place_id)
+      .eq("user_id", userId)
+      .eq("place_id", placeId)
       .single();
 
     if (!existsError && existing) {
@@ -52,7 +56,7 @@ exports.addToWishlist = async (req, res) => {
     // Tambahkan
     const { data, error } = await supabase
       .from("wishlists")
-      .insert([{ user_id, place_id }])
+      .insert([{ user_id: userId, place_id: placeId }])
       .select()
       .single();
 
@@ -60,9 +64,8 @@ exports.addToWishlist = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      wishlist: data
+      wishlist: data,
     });
-
   } catch (err) {
     console.error("addToWishlist error:", err);
     return res.status(500).json({ error: err.message });
@@ -77,22 +80,26 @@ exports.removeFromWishlist = async (req, res) => {
     const { user_id, place_id } = req.body;
 
     if (!user_id || !place_id) {
-      return res.status(400).json({ message: "user_id dan place_id wajib diisi." });
+      return res
+        .status(400)
+        .json({ message: "user_id dan place_id wajib diisi." });
     }
+
+    const userId = parseInt(user_id, 10);
+    const placeId = parseInt(place_id, 10);
 
     const { error } = await supabase
       .from("wishlists")
       .delete()
-      .eq("user_id", user_id)
-      .eq("place_id", place_id);
+      .eq("user_id", userId)
+      .eq("place_id", placeId);
 
     if (error) throw error;
 
     return res.json({
       success: true,
-      message: "Berhasil dihapus dari wishlist."
+      message: "Berhasil dihapus dari wishlist.",
     });
-
   } catch (err) {
     console.error("removeFromWishlist error:", err);
     return res.status(500).json({ error: err.message });
