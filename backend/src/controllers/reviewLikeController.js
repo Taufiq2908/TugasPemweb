@@ -55,7 +55,7 @@ exports.likeReview = async (req, res) => {
     } else {
       await supabase
         .from("reviews")
-        .update({ thumbsUpCount: likeCount })
+        .update({thumbs_up_count :likeCount})
         .eq("id", reviewId);
     }
 

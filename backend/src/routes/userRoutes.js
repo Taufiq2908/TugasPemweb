@@ -6,6 +6,7 @@ const router = express.Router();
 
 // GET /users/profile → butuh token
 router.get("/profile", protect, getProfile);
+router.put("/profile/update", protect, updateProfile);
 
 
 module.exports = router;

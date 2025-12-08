@@ -333,6 +333,7 @@ export const RestaurantDetail = ({
         {
           method: "POST",
           headers: {
+            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
         }
@@ -658,7 +659,7 @@ export const RestaurantDetail = ({
                       onClick={() =>
                         rev.isAnonymous
                           ? null
-                          : onUserClick && onUserClick(rev.userName)
+                          : onUserClick && onUserClick(rev.userId)
                       }
                       className={`flex items-center gap-3 ${
                         rev.isAnonymous ? "" : "hover:opacity-80"
