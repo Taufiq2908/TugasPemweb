@@ -461,7 +461,7 @@ function App() {
       case "wishlist":
         return (
           <Wishlist
-            restaurants={apiRestaurants}
+            user={user}
             favorites={favorites}
             onToggleFavorite={toggleFavorite}
             onViewDetail={handleRestaurantClick}
