@@ -8,6 +8,7 @@ exports.getAllPlaces = async (req, res) => {
     const { data, error } = await supabase
       .from("places")
       .select("*")
+      .eq("status", "active") // 🔹 FILTER RESTO AKTIF
       .order("id", { ascending: true });
 
     if (error) throw error;
@@ -30,6 +31,7 @@ exports.getPlacesByCity = async (req, res) => {
       .from("places")
       .select("*")
       .eq("city_id", cityId)
+      .eq("status", "active") // 🔹 FILTER RESTO AKTIF
       .order("id", { ascending: true });
 
     if (error) throw error;
@@ -48,11 +50,12 @@ exports.getPlaceById = async (req, res) => {
   try {
     const placeId = parseInt(req.params.id);
 
-    // 1. Ambil data restoran
+    // 1. Ambil data restoran (HANYA YANG ACTIVE)
     const { data: place, error: placeError } = await supabase
       .from("places")
       .select("*")
       .eq("id", placeId)
+      .eq("status", "active") // 🔹 FILTER RESTO AKTIF
       .single();
 
     if (placeError || !place) {
@@ -70,7 +73,6 @@ exports.getPlaceById = async (req, res) => {
 
     if (categoryError) throw categoryError;
 
-    // Format kategori
     const formattedCategories = categories.map((c) => ({
       id: c.category_id,
       name: c.categories?.name || ""

@@ -49,6 +49,32 @@ exports.getReviewsByPlace = async (req, res) => {
   }
 };
 
+
+exports.getReviewsByUser = async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    const { data, error } = await supabase
+      .from("reviews")
+      .select(`
+        id,
+        rating,
+        comment,
+        created_at,
+        place_id,
+        places ( id, name )
+      `)
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    return res.json({ reviews: data });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
 // =============================================
 // ADD REVIEW — otomatis hitung rating & level user
 // =============================================
@@ -138,7 +164,7 @@ exports.getReviewsByPlace = async (req, res) => {
         review: {
           ...review,
           user_name: userData?.name || "Pengguna",
-          user_avatar_url: avatarUrl
+          user_avatar_url: avatarUrl || null
         },
         new_user_level: newLevel
       });

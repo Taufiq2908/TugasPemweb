@@ -74,8 +74,15 @@ export const LoginForm = ({ onLogin, onSwitchMode }) => {
         reviewCount: 0
       };
 
-      onLogin(userData);
-      checkUserLocation(userData); 
+      onLogin({
+        ...userData,
+        role: data.user.role   // ⬅️ PENTING
+      });
+
+      if (data.user.role !== "admin") {
+        checkUserLocation(userData);
+      }
+ 
 
     } catch (err) {
       setError("Terjadi kesalahan koneksi.");

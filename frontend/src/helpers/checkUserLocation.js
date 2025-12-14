@@ -1,6 +1,7 @@
 // src/helpers/checkUserLocation.js
 
-import { API_BASE } from "../config";
+import { baseURL as API_BASE } from "../config/api";
+
 
 export async function checkUserLocation(user) {
   if (!user) return;

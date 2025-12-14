@@ -1,3 +1,5 @@
+const supabase = require("../supabase/supabaseClient");
+
 // Profil user yang sedang login
 exports.getProfile = async (req, res) => {
   try {
@@ -42,4 +44,44 @@ exports.getUserPublicProfile = async (req, res) => {
 
   res.json({ user: data });
 };
+
+// =========================
+// DAFTAR PEMILIK RESTO (USER → OWNER)
+// =========================
+exports.registerOwner = async (req, res) => {
+  try {
+    const { nik, phone, address } = req.body;
+    const userId = req.user.id;
+
+    if (!nik || !phone || !address) {
+      return res.status(400).json({
+        message: "NIK, nomor HP, dan alamat wajib diisi."
+      });
+    }
+
+    const { error } = await supabase
+      .from("users")
+      .update({
+        role: "owner",
+        nik,
+        phone,
+        address
+      })
+      .eq("id", userId);
+
+    if (error) {
+      console.error(error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({
+      message: "Berhasil mendaftar sebagai pemilik resto.",
+      role: "owner"
+    });
+  } catch (err) {
+    console.error("registerOwner error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 

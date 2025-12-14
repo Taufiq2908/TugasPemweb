@@ -10,6 +10,16 @@ import { PublicProfile } from "./pages/PublicProfile";
 import { Wishlist } from "./pages/Wishlist";
 import { RestaurantDetail } from "./pages/RestaurantDetail";
 import { SearchPage } from "./pages/SearchPage";
+import AdminPage from "./pages/AdminPage";
+import AdminRestaurantDetail from "./pages/AdminRestaurantDetail";
+import AdminAddRestaurant from "./pages/AdminAddRestaurant";
+import OwnerPage from "./pages/OwnerPage";
+import OwnerRestaurantDetail from "./pages/OwnerRestaurantDetail";
+import HomeRestaurantMap from "./components/HomeRestaurantMap";
+import RegisterOwner from "./pages/RegisterOwner";
+
+
+
 
 import { CITY_MAP } from "./constant/cities";
 
@@ -66,6 +76,9 @@ function App() {
     localStorage.getItem("makanKi_token") || ""
   );
   const [currentPage, setCurrentPage] = useState("home");
+  const [selectedAdminRestaurantId, setSelectedAdminRestaurantId] = useState(null);
+  const [selectedOwnerRestaurantId, setSelectedOwnerRestaurantId] = useState(null);
+
   const [selectedRestaurant, setSelectedRestaurant] = useState(null); // <== OBJECT restoran
   const [selectedUserProfile, setSelectedUserProfile] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -74,6 +87,8 @@ function App() {
   // HOMEPAGE – LOKASI & KOTA
   // ==========================
   const [cityList, setCityList] = useState(Object.values(CITY_MAP));
+  const [selectedUserId, setSelectedUserId] = useState(null);
+
 
   const [selectedCityId, setSelectedCityId] = useState(null); // untuk filter homepage
   const [userCityId, setUserCityId] = useState(null); // kota hasil deteksi lokasi pertama
@@ -94,6 +109,7 @@ function App() {
 
   // wishlist
   const [favorites, setFavorites] = useState([]);
+
 
   // ==========================
   // POPUP IZIN LOKASI (VERSI LAMA)
@@ -362,7 +378,12 @@ function App() {
     setUser(fullUserData);
     setToken(localStorage.getItem("makanKi_token") || "");
 
-    setCurrentPage("home");
+    if (userData.role === "admin") {
+      setCurrentPage("admin");
+    } else {
+      setCurrentPage("home");
+    }
+
   };
 
 
@@ -387,7 +408,10 @@ function App() {
 
 
   const handleUpdateUser = (updatedUser) => {
-    setUser(updatedUser);
+    setUser(prev => ({
+      ...prev,
+      ...updatedUser
+    }));
   };
 
   // ==========================
@@ -401,20 +425,25 @@ function App() {
     setIsMobileMenuOpen(false);
   };
 
-  const handleUserClick = (username) => {
-    if (user && user.name === username) {
+  const handleUserClick = (userId) => {
+    // 🛑 VALIDASI KETAT (anti [object Object])
+    if (typeof userId !== "string" && typeof userId !== "number") {
+      console.error("Invalid userId:", userId);
+      return;
+    }
+
+    // Kalau klik diri sendiri → profile pribadi
+    if (user && String(user.id) === String(userId)) {
       setCurrentPage("profile");
     } else {
-      const userProfile = {
-        name: username,
-        avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}`,
-        reviews: []
-      };
-      setSelectedUserProfile(userProfile);
+      // Profile publik SELALU pakai ID
+      setSelectedUserId(userId);
       setCurrentPage("public-profile");
     }
+
     window.scrollTo(0, 0);
   };
+
 
 
   const navigateTo = (page) => {
@@ -455,6 +484,86 @@ function App() {
             onSwitchMode={() => setCurrentPage("login")}
           />
         );
+      case "admin":
+        if (!user || user.role !== "admin") {
+          return null; // ⬅️ JANGAN setState di sini
+        }
+
+        return (
+          <AdminPage
+            user={user}
+            token={token}
+            onAdd={() => setCurrentPage("admin-add")}
+            onOpenDetail={(id) => {
+              setSelectedAdminRestaurantId(id);
+              setCurrentPage("admin-detail");
+            }}
+          />
+        );
+
+      case "admin-detail":
+        if (!selectedAdminRestaurantId) return null;
+
+        return (
+          <AdminRestaurantDetail
+            restaurantId={selectedAdminRestaurantId}
+            onBack={() => setCurrentPage("admin")}
+          />
+        );
+
+      case "admin-add":
+        return (
+          <AdminAddRestaurant
+            token={token}
+            onBack={() => setCurrentPage("admin")}
+          />
+        );
+
+      
+      case "owner":
+        if (!user || user.role !== "owner") {
+          setCurrentPage("home");
+          return null;
+        }
+        return (
+          <OwnerPage
+            user={user}
+            token={token}
+            onOpenDetail={(id) => {
+              setSelectedOwnerRestaurantId(id);
+              setCurrentPage("owner-detail");
+            }}
+          />
+        );
+
+      case "owner-detail":
+        if (!user || user.role !== "owner" || !selectedOwnerRestaurantId) {
+          setCurrentPage("home");
+          return null;
+        }
+        return (
+          <OwnerRestaurantDetail
+            restaurantId={selectedOwnerRestaurantId}
+            token={token}
+            onBack={() => setCurrentPage("owner")}
+          />
+        );
+
+      case "register-owner":
+        return (
+          <RegisterOwner
+            user={user}
+            token={token}
+            onBack={() => setCurrentPage("profile")}
+            onSuccess={(updatedUser) => {
+              setUser(updatedUser);
+              setCurrentPage("profile");
+            }}
+          />
+        );
+
+
+
 
       case "profile":
         if (!user) {
@@ -467,19 +576,21 @@ function App() {
             reviews={[]}
             onLogout={handleLogout}
             onUpdateUser={handleUpdateUser}
+            onNavigate={navigateTo}
             token={token}
           />
 
         );
 
       case "public-profile":
-        if (!selectedUserProfile) return null;
+        if (!selectedUserId) return null;
         return (
           <PublicProfile
-            userId={selectedUserProfile}
+            userId={selectedUserId}
             onBack={() => setCurrentPage("detail")}
           />
         );
+
 
       case "wishlist":
         return (
@@ -618,7 +729,9 @@ function App() {
               </div>
             </div>
 
-            {/* Toolbar: judul + toggle view */}
+            {/* ==============================
+                Toolbar: Judul + Toggle View
+            ================================ */}
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-800">
                 Rekomendasi Terpopuler
@@ -626,7 +739,9 @@ function App() {
                   ({filteredHomeRestaurants.length} tempat di {currentCityName})
                 </span>
               </h2>
+
               <div className="flex bg-white rounded-lg p-1 border border-gray-200 shadow-sm">
+                {/* GRID */}
                 <button
                   onClick={() => setViewMode("grid")}
                   className={`p-2 rounded ${
@@ -634,13 +749,9 @@ function App() {
                       ? "bg-gray-100 text-rose-600"
                       : "text-gray-400 hover:text-gray-600"
                   }`}
+                  title="Tampilan Grid"
                 >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -649,6 +760,8 @@ function App() {
                     />
                   </svg>
                 </button>
+
+                {/* MAP */}
                 <button
                   onClick={() => setViewMode("map")}
                   className={`p-2 rounded ${
@@ -656,13 +769,9 @@ function App() {
                       ? "bg-gray-100 text-rose-600"
                       : "text-gray-400 hover:text-gray-600"
                   }`}
+                  title="Tampilan Peta"
                 >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -674,8 +783,11 @@ function App() {
               </div>
             </div>
 
-            {/* Grid / Map */}
+            {/* ==============================
+                GRID / MAP CONTENT
+            ================================ */}
             {viewMode === "grid" ? (
+              /* ================= GRID ================= */
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {filteredHomeRestaurants.length > 0 ? (
                   filteredHomeRestaurants.map((restaurant) => (
@@ -700,52 +812,25 @@ function App() {
                 )}
               </div>
             ) : (
-              <div className="w-full h-[600px] bg-gray-200 rounded-xl overflow-hidden relative flex items-center justify-center border-2 border-dashed border-gray-300">
-                {cityMapUrl ? (
-                  <iframe
-                    src={cityMapUrl}
-                    title="Peta restoran"
-                    className="w-full h-full border-none"
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
+              /* ================= MAP ================= */
+              <div className="w-full h-[600px] rounded-xl overflow-hidden border">
+                {filteredHomeRestaurants.filter(r => r.lat && r.lon).length > 0 ? (
+                  <HomeRestaurantMap
+                    restaurants={filteredHomeRestaurants.filter(r => r.lat && r.lon)}
+                    center={{
+                      lat: Number(filteredHomeRestaurants.find(r => r.lat)?.lat) || -5.147665,
+                      lng: Number(filteredHomeRestaurants.find(r => r.lon)?.lon) || 119.432732
+                    }}
+                    onSelect={handleRestaurantClick}
                   />
                 ) : (
-                  <div className="text-center p-6 bg-white/90 backdrop-blur rounded-xl shadow-lg max-w-md">
-                    <svg
-                      className="w-16 h-16 text-rose-500 mx-auto mb-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                    </svg>
-                    <h3 className="text-xl font-bold text-gray-800 mb-2">
-                      Peta Restoran
-                    </h3>
-                    <p className="text-gray-600 mb-4">
-                      Peta akan tampil di sini berdasarkan kota yang kamu pilih.
-                    </p>
-                    <button
-                      onClick={() => setViewMode("grid")}
-                      className="bg-rose-600 text-white px-6 py-2 rounded-lg hover:bg-rose-700 transition"
-                    >
-                      Kembali ke Grid View
-                    </button>
+                  <div className="w-full h-full flex items-center justify-center text-gray-500">
+                    Tidak ada lokasi restoran untuk ditampilkan di peta.
                   </div>
                 )}
               </div>
             )}
+
           </>
         );
     }

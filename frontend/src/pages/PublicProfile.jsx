@@ -4,63 +4,66 @@ import { StarRating } from "../components/StarRating";
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export const PublicProfile = ({ userId, onBack }) => {
-  const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   // ==============================
-  // Fetch Data Profile Publik
+  // FETCH PROFIL + REVIEW (SATU ENDPOINT)
   // ==============================
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/users${userId}`);
+    if (!userId) return;
 
+    const fetchProfile = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/profile/${userId}/reviews`);
         const data = await res.json();
+
         if (!res.ok) {
-          setError(data.message || "Gagal memuat profil.");
+          setError(data.message || "Profil tidak ditemukan.");
           setLoading(false);
           return;
         }
 
-        setUser(data.user);
+        setProfile(data.profile);
+        setReviews(data.reviews || []);
       } catch (err) {
-        setError("Tidak dapat terhubung ke server.");
+        setError("Gagal terhubung ke server.");
       }
+
       setLoading(false);
     };
 
-    fetchUser();
+    fetchProfile();
   }, [userId]);
 
-  const getBadgeColor = (level) => {
-    switch (level) {
-      case "Legend": return "bg-amber-100 text-amber-800 border-amber-300";
-      case "Expert": return "bg-red-100 text-red-800 border-red-200";
-      case "Foodie": return "bg-purple-100 text-purple-700 border-purple-200";
-      case "Explorer": return "bg-blue-100 text-blue-700 border-blue-200";
-      default: return "bg-green-100 text-green-700 border-green-200";
-    }
+  const getBadgeColor = (level = 1) => {
+    if (level >= 5) return "bg-amber-100 text-amber-800";
+    if (level >= 4) return "bg-red-100 text-red-700";
+    if (level >= 3) return "bg-purple-100 text-purple-700";
+    if (level >= 2) return "bg-blue-100 text-blue-700";
+    return "bg-green-100 text-green-700";
   };
 
-  // Loading State
+  // ==============================
+  // UI STATES
+  // ==============================
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8 text-center">
-        <div className="loader mx-auto mb-4"></div>
-        <p className="text-gray-600">Memuat profil...</p>
+      <div className="max-w-4xl mx-auto py-12 text-center text-gray-500">
+        Memuat profil pengguna...
       </div>
     );
   }
 
-  // Error State
-  if (error || !user) {
+  if (error || !profile) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8 text-center">
-        <p className="text-red-600 font-medium mb-4">{error || "Profil tidak ditemukan."}</p>
+      <div className="max-w-4xl mx-auto py-12 text-center">
+        <p className="text-red-600 mb-4">{error || "Profil tidak ditemukan."}</p>
         <button
           onClick={onBack}
-          className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg"
+          className="px-4 py-2 bg-gray-200 rounded-lg"
         >
           Kembali
         </button>
@@ -68,78 +71,69 @@ export const PublicProfile = ({ userId, onBack }) => {
     );
   }
 
+  // ==============================
+  // RENDER
+  // ==============================
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 animate-fade-in-up">
+    <div className="max-w-4xl mx-auto px-4 py-8">
       <button
         onClick={onBack}
-        className="flex items-center text-gray-600 hover:text-brand-600 mb-6 transition-colors font-medium"
+        className="mb-6 text-gray-600 hover:text-rose-600"
       >
-        <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-        </svg>
-        Kembali
+        ← Kembali
       </button>
 
-      {/* ==============================
-          Header Profil
-      =============================== */}
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden mb-8">
-        <div className="h-32 bg-linear-to-r from-brand-600 to-brand-400"></div>
+      {/* HEADER PROFIL */}
+      <div className="bg-white rounded-2xl shadow p-6 flex items-center gap-6 mb-10">
+        <img
+          src={
+            profile.photo_url ||
+            `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}`
+          }
+          alt={profile.name}
+          className="w-24 h-24 rounded-full border object-cover"
+        />
 
-        <div className="px-8 pb-8 flex flex-col sm:flex-row items-center sm:items-end -mt-12 gap-6">
-          <div className="w-24 h-24 rounded-full border-4 border-white bg-white shadow-md overflow-hidden">
-            <img
-              src={user.avatarUrl || `https://ui-avatars.com/api/?name=${user.name}&background=random`}
-              alt={user.name}
-              className="w-full h-full object-cover"
-            />
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold">{profile.name}</h1>
 
-          <div className="text-center sm:text-left flex-1">
-            <h1 className="text-2xl font-bold text-gray-900">{user.name}</h1>
+          <div className="flex gap-2 mt-2 flex-wrap">
+            <span
+              className={`px-3 py-1 rounded-full text-xs font-semibold ${getBadgeColor(profile.level)}`}
+            >
+              Level {profile.level}
+            </span>
 
-            <div className="flex flex-wrap justify-center sm:justify-start gap-2 mt-2">
-              <span
-                className={`px-3 py-1 rounded-full text-xs font-bold uppercase border ${getBadgeColor(
-                  user.level || "User"
-                )}`}
-              >
-                {user.level || "User"}
-              </span>
-
-              <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
-                {user.reviewCount || 0} Ulasan
-              </span>
-
-              <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
-                Bergabung {user.joinDate || "Tidak diketahui"}
-              </span>
-            </div>
+            <span className="px-3 py-1 rounded-full text-xs bg-gray-100">
+              {profile.review_count || 0} Ulasan
+            </span>
           </div>
         </div>
       </div>
 
-      {/* ==============================
-          Riwayat Review – sementara dummy
-      =============================== */}
-      <h3 className="text-xl font-bold text-gray-900 mb-4">Riwayat Ulasan Terbaru</h3>
+      {/* RIWAYAT REVIEW */}
+      <h2 className="text-xl font-bold mb-4">Riwayat Ulasan</h2>
 
-      <div className="space-y-4">
-        {[1, 2].map((i) => (
-          <div key={i} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <div className="flex justify-between items-start mb-2">
-              <div>
-                <h4 className="font-bold text-gray-900">Restoran Contoh #{i}</h4>
-                <span className="text-xs text-gray-500">2 hari yang lalu</span>
+      {reviews.length === 0 ? (
+        <p className="text-gray-500">Belum ada ulasan.</p>
+      ) : (
+        <div className="space-y-4">
+          {reviews.map((r) => (
+            <div key={r.id} className="bg-white rounded-xl p-5 border">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="font-semibold">{r.places?.name}</h3>
+                <StarRating value={r.rating} size="sm" />
               </div>
-              <StarRating rating={5} />
+
+              <p className="text-sm text-gray-600">{r.comment}</p>
+
+              <p className="text-xs text-gray-400 mt-2">
+                {new Date(r.created_at).toLocaleDateString("id-ID")}
+              </p>
             </div>
-            <p className="text-gray-600 text-sm">
-              "Makanan di sini sangat enak dan pelayanannya memuaskan. Sangat merekomendasikan tempat ini."
-            </p>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

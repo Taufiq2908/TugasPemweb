@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { StarRating } from "../components/StarRating";
+import {
+  GoogleMap,
+  Marker,
+  useJsApiLoader
+} from "@react-google-maps/api";
+
 
 // =========================
 // CONFIG API + SUPABASE
@@ -46,29 +52,40 @@ async function uploadReviewImage(file, placeId, userId) {
 
 // Helper konversi format review backend -> frontend
 function mapBackendReview(raw) {
-  const userName = raw.is_anonymous
+  const isAnon = raw.is_anonymous === true;
+
+  const userName = isAnon
     ? "Pengguna Anonim"
-    : raw.user_name || "Pengguna";
+    : raw.user_name || raw.users?.name || "Pengguna";
 
   const avatarUrl =
     raw.user_avatar_url ||
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(
-      userName
-    )}&background=e11d48&color=fff`;
+    raw.users?.photo_url ||
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}`;
 
   return {
     id: raw.id,
-    userId: raw.user_id,
+
+    // 🔒 KUNCI: PAKSA PRIMITIVE
+    userId: isAnon
+      ? null
+      : typeof raw.user_id === "object"
+        ? raw.user_id.id ?? null
+        : raw.user_id ?? null,
+
     userName,
     userAvatar: avatarUrl,
     rating: raw.rating,
     comment: raw.comment,
-    isAnonymous: raw.is_anonymous,
+    isAnonymous: isAnon,
     date: raw.created_at,
     likes: raw.thumbs_up_count || 0,
-    photos: raw.photo_urls || [],
+    photos: raw.photo_urls || []
   };
 }
+
+
+
 
 import { toggleWishlist } from "../utils/wishlist";
 
@@ -576,64 +593,74 @@ export const RestaurantDetail = ({
         </nav>
       </div>
 
-      {/* Konten Ringkasan */}
       {activeSection === "overview" && (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        {/* ================= LEFT ================= */}
         <div className="space-y-6">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
+          {/* Ringkasan Tempat */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h2 className="text-lg font-bold mb-2 text-gray-900">
               Ringkasan Tempat
             </h2>
             <p className="text-sm text-gray-600">
               {restaurantData.description ||
-                "Belum ada deskripsi lengkap. Namun restoran ini sudah terdaftar dan siap kamu coba!"}
+                "Belum ada deskripsi lengkap untuk restoran ini."}
             </p>
           </div>
 
-          {/* Stat rating di ringkasan */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
+          {/* Statistik Rating */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h3 className="text-base font-bold text-gray-900 mb-4">
               Statistik Rating
             </h3>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="text-4xl font-extrabold text-rose-600">
-                  {avgRatingDisplay}
-                </div>
-                <div className="text-sm text-gray-600">
-                  <div>{reviewCountDisplay} ulasan</div>
-                  <div className="flex items-center gap-1 text-yellow-500">
-                    <StarRating value={Number(avgRatingDisplay)} size="sm" />
-                  </div>
-                </div>
-              </div>
 
-              <div className="flex-1 space-y-1">
-                {[5, 4, 3, 2, 1].map((star) => {
-                  const count = reviewStats.distribution[star] || 0;
-                  const percent = reviewStats.count
-                    ? (count / reviewStats.count) * 100
-                    : 0;
-                  return (
-                    <div
-                      key={star}
-                      className="flex items-center gap-2 text-xs text-gray-500"
-                    >
-                      <span className="w-10 text-right">{star}★</span>
-                      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-rose-500"
-                          style={{ width: `${percent}%` }}
-                        />
-                      </div>
-                      <span className="w-10 text-right">{count}</span>
-                    </div>
-                  );
-                })}
+            <div className="flex items-center gap-4">
+              <div className="text-4xl font-extrabold text-rose-600">
+                {avgRatingDisplay}
               </div>
+              <div className="text-sm text-gray-600">
+                <div>{reviewCountDisplay} ulasan</div>
+                <StarRating value={Number(avgRatingDisplay)} size="sm" />
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-1">
+              {[5, 4, 3, 2, 1].map((star) => {
+                const count = reviewStats.distribution[star] || 0;
+                const percent = reviewStats.count
+                  ? (count / reviewStats.count) * 100
+                  : 0;
+
+                return (
+                  <div
+                    key={star}
+                    className="flex items-center gap-2 text-xs text-gray-500"
+                  >
+                    <span className="w-10 text-right">{star}★</span>
+                    <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-rose-500"
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
+                    <span className="w-8 text-right">{count}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
-      )}
+
+        {/* ================= RIGHT ================= */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden h-[420px]">
+          <RestaurantLocationMap restaurant={restaurantData} />
+        </div>
+
+      </div>
+    )}
+
+
 
       {/* Konten Ulasan */}
       {activeSection === "reviews" && (
@@ -656,15 +683,16 @@ export const RestaurantDetail = ({
                 >
                   <div className="flex items-start justify-between gap-3">
                     <button
-                      onClick={() =>
-                        rev.isAnonymous
-                          ? null
-                          : onUserClick && onUserClick(rev.userId)
-                      }
+                      disabled={rev.isAnonymous || !rev.userId}
+                      onClick={() => onUserClick(rev.userId)}
                       className={`flex items-center gap-3 ${
-                        rev.isAnonymous ? "" : "hover:opacity-80"
+                        rev.isAnonymous || !rev.userId
+                          ? "cursor-default"
+                          : "hover:opacity-80"
                       }`}
                     >
+
+
                       <img
                         src={rev.userAvatar}
                         alt={rev.userName}
@@ -851,3 +879,43 @@ export const RestaurantDetail = ({
     </div>
   );
 };
+
+
+function RestaurantLocationMap({ restaurant }) {
+  const { isLoaded } = useJsApiLoader({
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_KEY
+  });
+
+  // VALIDASI DATA
+  if (
+    !isLoaded ||
+    !restaurant ||
+    !restaurant.lat ||
+    !restaurant.lon
+  ) {
+    return (
+      <div className="flex items-center justify-center h-full text-gray-500">
+        Lokasi restoran tidak tersedia
+      </div>
+    );
+  }
+
+  const center = {
+    lat: Number(restaurant.lat),
+    lng: Number(restaurant.lon)
+  };
+
+  return (
+    <GoogleMap
+      mapContainerStyle={{
+        width: "100%",
+        height: "100%"
+      }}
+      center={center}
+      zoom={16}
+    >
+      {/* 📍 MARKER RESTORAN SAJA */}
+      <Marker position={center} />
+    </GoogleMap>
+  );
+}

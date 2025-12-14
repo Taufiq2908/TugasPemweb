@@ -1,7 +1,6 @@
 const jwt = require("jsonwebtoken");
 const supabase = require("../supabase/supabaseClient");
 
-// Middleware proteksi route dengan JWT
 exports.protect = async (req, res, next) => {
   let token;
 
@@ -13,43 +12,56 @@ exports.protect = async (req, res, next) => {
   }
 
   if (!token) {
-    return res
-      .status(401)
-      .json({ message: "Tidak ada token, otorisasi ditolak." });
+    return res.status(401).json({ message: "Tidak ada token." });
   }
 
   try {
-    // Verifikasi token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Ambil user dari Supabase
-    const { data: users, error } = await supabase
-      .from("users")
-      .select("id, name, email, is_verified")
-      .eq("id", decoded.id);
-
-    if (error) {
-      console.error(error);
-      return res.status(500).json({ error: error.message });
+    // =========================
+    // ✅ ADMIN (TIDAK PERLU ADA DI DB)
+    // =========================
+    if (
+      decoded.role === "admin" ||
+      decoded.email === process.env.ADMIN_EMAIL
+    ) {
+      req.user = {
+        id: "admin",
+        name: "Admin",
+        email: decoded.email || "admin",
+        role: "admin"
+      };
+      return next();
     }
 
-    if (!users || users.length === 0) {
+    // =========================
+    // USER / OWNER (WAJIB ADA DI DB)
+    // =========================
+    if (!decoded.id) {
+      return res.status(401).json({ message: "Token tidak valid." });
+    }
+
+    const { data: user, error } = await supabase
+      .from("users")
+      .select("id, name, email, is_verified, role")
+      .eq("id", decoded.id)
+      .single();
+
+    if (error || !user) {
       return res.status(401).json({ message: "Pengguna tidak ditemukan." });
     }
 
-    const user = users[0];
-
-    // Simpan ke req.user supaya bisa dipakai controller lain
     req.user = {
       id: user.id,
       name: user.name,
       email: user.email,
-      isVerified: user.is_verified
+      isVerified: user.is_verified,
+      role: user.role // user | owner
     };
 
     return next();
   } catch (error) {
-    console.error(error);
+    console.error("Auth error:", error.message);
     return res
       .status(401)
       .json({ message: "Token tidak valid atau kadaluarsa." });

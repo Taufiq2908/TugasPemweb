@@ -22,6 +22,8 @@ const chatbotRoutes = require("./routes/chatbot.routes");
 const smartSearchRoutes = require("./routes/smartSearchRoutes");
 const placeSearchRoutes = require("./routes/placeSearchRoutes");
 const mapRoutes = require("./routes/mapRoutes");
+const ownerPlaceRoutes = require("./routes/ownerPlaceRoutes");
+const adminPlaceRoutes = require("./routes/adminPlaceRoutes");
 
 const app = express();
 
@@ -53,6 +55,8 @@ app.use("/users", userRoutes);
 app.use("/wishlist", wishlistRoutes);
 app.use("/profile", userProfileRoutes);
 app.use("/location", userLocationRoutes);
+app.use("/owner", ownerPlaceRoutes);
+app.use("/admin", adminPlaceRoutes);
 
 // Chatbot tetap di /api/chatbot
 app.use("/api", chatbotRoutes);

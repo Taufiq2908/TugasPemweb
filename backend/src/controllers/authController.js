@@ -8,15 +8,18 @@ const {
   sendResetPasswordEmail
 } = require("../services/emailService");
 
-// Helper: buat JWT
-const createToken = (userId) => {
-  return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
-    expiresIn: "1d" // 1 hari
-  });
+// Helper: buat JWT USER
+const createToken = (userId, role = "user") => {
+  return jwt.sign(
+    { id: userId, role },
+    process.env.JWT_SECRET,
+    { expiresIn: "1d" }
+  );
 };
 
+
 // =========================
-// REGISTER USER
+// REGISTER USER (TIDAK DIUBAH)
 // =========================
 exports.registerUser = async (req, res) => {
   try {
@@ -28,7 +31,6 @@ exports.registerUser = async (req, res) => {
         .json({ message: "Name, email, dan password wajib diisi." });
     }
 
-    // Cek apakah email sudah terdaftar
     const { data: existing, error: existingError } = await supabase
       .from("users")
       .select("id")
@@ -44,11 +46,8 @@ exports.registerUser = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    
-    // PERUBAHAN DI SINI: Generate UUID menggunakan crypto
     const verificationToken = crypto.randomUUID();
 
-    // Insert user baru
     const { data: inserted, error: insertError } = await supabase
       .from("users")
       .insert([
@@ -58,6 +57,7 @@ exports.registerUser = async (req, res) => {
           password_hash: hashedPassword,
           is_verified: false,
           verification_token: verificationToken,
+          role: "user", // 🔹 DEFAULT ROLE
           created_at: new Date().toISOString()
         }
       ])
@@ -69,12 +69,10 @@ exports.registerUser = async (req, res) => {
       return res.status(500).json({ error: insertError.message });
     }
 
-    // Kirim email verifikasi
     try {
       await sendVerificationEmail(email, verificationToken);
     } catch (mailErr) {
       console.error("Gagal kirim email verifikasi:", mailErr.message);
-      // user tetap terdaftar, hanya emailnya yang gagal terkirim
     }
 
     return res.status(201).json({
@@ -84,7 +82,8 @@ exports.registerUser = async (req, res) => {
         id: inserted.id,
         name: inserted.name,
         email: inserted.email,
-        isVerified: inserted.is_verified
+        isVerified: inserted.is_verified,
+        role: inserted.role
       }
     });
   } catch (err) {
@@ -94,7 +93,7 @@ exports.registerUser = async (req, res) => {
 };
 
 // =========================
-// VERIFY EMAIL + AUTO LOGIN
+// VERIFY EMAIL + AUTO LOGIN (TIDAK DIUBAH)
 // =========================
 exports.verifyEmail = async (req, res) => {
   try {
@@ -104,7 +103,6 @@ exports.verifyEmail = async (req, res) => {
       return res.status(400).json({ message: "Token verifikasi tidak ada." });
     }
 
-    // Cari user berdasarkan token
     const { data: user, error } = await supabase
       .from("users")
       .select("*")
@@ -117,7 +115,6 @@ exports.verifyEmail = async (req, res) => {
         .json({ message: "Token verifikasi tidak valid atau sudah digunakan." });
     }
 
-    // Update user → set email verified
     const { error: updateError } = await supabase
       .from("users")
       .update({
@@ -131,16 +128,13 @@ exports.verifyEmail = async (req, res) => {
       return res.status(500).json({ error: updateError.message });
     }
 
-    // 🔥 BUAT JWT TOKEN AUTO LOGIN
     const jwtToken = jwt.sign(
-      { id: user.id, email: user.email },
+      { id: user.id, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    // 🔥 REDIRECT KE HALAMAN FRONTEND DENGAN TOKEN LOGIN
     const redirectUrl = `http://localhost:5173/?token=${jwtToken}`;
-
     return res.redirect(redirectUrl);
 
   } catch (err) {
@@ -149,9 +143,8 @@ exports.verifyEmail = async (req, res) => {
   }
 };
 
-
 // =========================
-// LOGIN USER
+// LOGIN USER + ADMIN (PERUBAHAN DI SINI)
 // =========================
 exports.loginUser = async (req, res) => {
   try {
@@ -163,6 +156,34 @@ exports.loginUser = async (req, res) => {
         .json({ message: "Email dan password wajib diisi." });
     }
 
+    // =====================================
+    // 🔐 LOGIN ADMIN (TAMBAHAN)
+    // =====================================
+    if (
+      email === process.env.ADMIN_CODE &&
+      password === process.env.ADMIN_PASSWORD
+    ) {
+      const adminToken = jwt.sign(
+        { id: "admin" , role: "admin" },
+        process.env.JWT_SECRET,
+        { expiresIn: "1d" }
+      );
+
+      return res.json({
+        message: "Login admin berhasil.",
+        token: adminToken,
+        user: {
+          id: null,
+          name: "Admin",
+          email: email,
+          role: "admin"
+        }
+      });
+    }
+
+    // =====================================
+    // LOGIN USER BIASA (KODE LAMA)
+    // =====================================
     const { data: users, error } = await supabase
       .from("users")
       .select("*")
@@ -190,7 +211,7 @@ exports.loginUser = async (req, res) => {
       });
     }
 
-    const token = createToken(user.id);
+    const token = createToken(user.id, user.role);
 
     return res.json({
       message: "Login berhasil.",
@@ -199,7 +220,8 @@ exports.loginUser = async (req, res) => {
         id: user.id,
         name: user.name,
         email: user.email,
-        isVerified: user.is_verified
+        isVerified: user.is_verified,
+        role: user.role // 🔹 ROLE DIKIRIM KE FRONTEND
       }
     });
   } catch (err) {
@@ -209,7 +231,7 @@ exports.loginUser = async (req, res) => {
 };
 
 // =========================
-// FORGOT PASSWORD
+// FORGOT PASSWORD (TIDAK DIUBAH)
 // =========================
 exports.forgotPassword = async (req, res) => {
   try {
@@ -230,7 +252,6 @@ exports.forgotPassword = async (req, res) => {
     }
 
     if (!users || users.length === 0) {
-      // Demi keamanan, jawabannya tetap sama (tidak bocorkan apakah email terdaftar)
       return res.json({
         message:
           "Jika email terdaftar, link reset password telah dikirim ke email tersebut."
@@ -238,11 +259,8 @@ exports.forgotPassword = async (req, res) => {
     }
 
     const user = users[0];
-    
-    // PERUBAHAN DI SINI: Generate UUID menggunakan crypto
     const resetToken = crypto.randomUUID();
-    
-    const expireDate = new Date(Date.now() + 60 * 60 * 1000); // 1 jam dari sekarang
+    const expireDate = new Date(Date.now() + 60 * 60 * 1000);
 
     const { error: updateError } = await supabase
       .from("users")
@@ -261,13 +279,12 @@ exports.forgotPassword = async (req, res) => {
       await sendResetPasswordEmail(email, resetToken);
     } catch (mailErr) {
       console.error("Gagal kirim email reset password:", mailErr.message);
-      // tetap balas sukses
     }
 
     return res.json({
       message:
         "Jika email terdaftar, link reset password telah dikirim ke email Anda."
-      });
+    });
   } catch (err) {
     console.error("forgotPassword error:", err);
     res.status(500).json({ error: err.message });
@@ -275,7 +292,7 @@ exports.forgotPassword = async (req, res) => {
 };
 
 // =========================
-// RESET PASSWORD
+// RESET PASSWORD (TIDAK DIUBAH)
 // =========================
 exports.resetPassword = async (req, res) => {
   try {

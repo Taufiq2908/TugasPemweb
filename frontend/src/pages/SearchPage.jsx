@@ -212,7 +212,12 @@ export const SearchPage = ({
           params.append('lng', lng);
         }
 
-        const res = await fetch(`${API_BASE}/search/search?${params.toString()}`);
+        const chatbotRes = await fetch(`${API_BASE}/api/chatbot`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query, user_city: userCity })
+        });
+
         const data = await res.json();
 
         if (!res.ok) {
