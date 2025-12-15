@@ -556,6 +556,7 @@ function App() {
             user={user}
             token={token}
             onAdd={() => setCurrentPage("admin-add")}
+            onLogout={handleLogout}
             onOpenDetail={(id) => {
               setSelectedAdminRestaurantId(id);
               setCurrentPage("admin-detail");

@@ -86,175 +86,145 @@ export default function OwnerPage({ user, token, onOpenDetail }) {
   };
 
   // =========================
-  // UI
+  // UI UPDATE
   // =========================
   return (
-    <div className="p-6">
-      {/* HEADER */}
-      <div className="flex items-center justify-between gap-3 mb-6">
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+      
+      {/* HEADER SECTION */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold">Panel Pemilik Restoran</h1>
-          <p className="text-sm text-gray-500">
-            Kelola restoran milikmu. Setiap perubahan akan membuat status kembali{" "}
-            <b>pending</b>.
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Panel Mitra Restoran</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Kelola data restoran Anda. Perubahan data akan merubah status menjadi <span className="font-semibold text-amber-600">Pending</span>.
           </p>
         </div>
 
-        <button
-          onClick={() => setShowAddForm((v) => !v)}
-          className="bg-emerald-600 text-white px-4 py-2 rounded"
-        >
-          + Tambah Restoran
-        </button>
+        {!showAddForm && (
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="inline-flex items-center justify-center px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 focus:ring-4 focus:ring-emerald-100 transition-all shadow-sm"
+          >
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+            Tambah Restoran
+          </button>
+        )}
       </div>
 
-      {/* ADD FORM */}
+      {/* ADD FORM CARD */}
       {showAddForm && (
-        <form
-          onSubmit={submitNew}
-          className="mb-8 bg-white p-4 rounded border max-w-2xl"
-        >
-          <h3 className="font-bold mb-4">Tambah Restoran Baru</h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">
-                Nama Restoran
-              </label>
-              <input
-                name="name"
-                required
-                className="block w-full border p-2 rounded"
-              />
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-10 animate-fade-in-down">
+            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+                <h3 className="font-bold text-gray-800">Formulir Restoran Baru</h3>
+                <button onClick={() => setShowAddForm(false)} className="text-gray-400 hover:text-gray-600">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
             </div>
+            
+            <form onSubmit={submitNew} className="p-6 sm:p-8">
+                <div className="space-y-6">
+                    {/* Identity Group */}
+                    <div className="grid grid-cols-1 gap-6">
+                        <Field label="Nama Restoran" required>
+                            <input name="name" className="form-input" placeholder="Contoh: Kedai Kopi Senja" />
+                        </Field>
+                        
+                        <Field label="Deskripsi">
+                            <textarea name="description" className="form-input min-h-[80px]" placeholder="Deskripsi singkat restoran..." />
+                        </Field>
+                    </div>
 
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">
-                Deskripsi
-              </label>
-              <textarea
-                name="description"
-                className="block w-full border p-2 rounded min-h-[90px]"
-              />
-            </div>
+                    <hr className="border-gray-100" />
 
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">
-                Alamat
-              </label>
-              <input
-                name="address"
-                required
-                className="block w-full border p-2 rounded"
-              />
-            </div>
+                    {/* Location Group */}
+                    <div>
+                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Lokasi</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="md:col-span-2">
+                                <Field label="Alamat Lengkap" required>
+                                    <input name="address" className="form-input" placeholder="Jalan, No, Kelurahan..." />
+                                </Field>
+                            </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Kota
-              </label>
-              <select
-                name="city_id"
-                required
-                className="block w-full border p-2 rounded"
-                defaultValue=""
-              >
-                <option value="" disabled>
-                  -- Pilih Kota --
-                </option>
-                {cityList.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+                            <Field label="Kota" required>
+                                <select name="city_id" className="form-input" defaultValue="">
+                                    <option value="" disabled>-- Pilih Kota --</option>
+                                    {cityList.map((c) => (
+                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                    ))}
+                                </select>
+                            </Field>
 
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Jam Operasional
-              </label>
-              <input
-                name="opening_hours"
-                placeholder="09:00 - 21:00"
-                className="block w-full border p-2 rounded"
-              />
-            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <Field label="Latitude" required>
+                                    <input name="lat" defaultValue={-5.147} className="form-input font-mono text-sm" />
+                                </Field>
+                                <Field label="Longitude" required>
+                                    <input name="lon" defaultValue={119.432} className="form-input font-mono text-sm" />
+                                </Field>
+                            </div>
+                        </div>
+                    </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Latitude
-              </label>
-              <input
-                name="lat"
-                required
-                defaultValue={-5.147}
-                className="block w-full border p-2 rounded"
-              />
-            </div>
+                    <hr className="border-gray-100" />
 
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Longitude
-              </label>
-              <input
-                name="lon"
-                required
-                defaultValue={119.432}
-                className="block w-full border p-2 rounded"
-              />
-            </div>
+                    {/* Details Group */}
+                    <div>
+                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Detail Operasional</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <Field label="Jam Operasional">
+                                <input name="opening_hours" className="form-input" placeholder="09:00 - 22:00" />
+                            </Field>
+                            <Field label="Rentang Harga">
+                                <input name="price_range" className="form-input" placeholder="Rp 15k - Rp 50k" />
+                            </Field>
+                            <div className="md:col-span-2">
+                                <Field label="Foto URL (Satu per baris)">
+                                    <textarea name="photos" className="form-input min-h-[100px] font-mono text-sm" placeholder={"https://example.com/img1.jpg\nhttps://example.com/img2.jpg"} />
+                                </Field>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">
-                Rentang Harga
-              </label>
-              <input
-                name="price_range"
-                placeholder="Rp10k - Rp30k"
-                className="block w-full border p-2 rounded"
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">
-                Photos (URL) — satu per baris
-              </label>
-              <textarea
-                name="photos"
-                placeholder={"https://...\nhttps://..."}
-                className="block w-full border p-2 rounded min-h-[90px]"
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-3 mt-4">
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="bg-emerald-600 disabled:opacity-60 text-white px-4 py-2 rounded"
-            >
-              {isLoading ? "Menyimpan..." : "Simpan"}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowAddForm(false)}
-              className="bg-gray-300 px-4 py-2 rounded"
-            >
-              Batal
-            </button>
-          </div>
-        </form>
+                {/* Footer Actions */}
+                <div className="mt-8 flex items-center justify-end gap-3 pt-6 border-t border-gray-100">
+                    <button
+                        type="button"
+                        onClick={() => setShowAddForm(false)}
+                        className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                        Batal
+                    </button>
+                    <button
+                        type="submit"
+                        disabled={isLoading}
+                        className={`px-6 py-2 bg-emerald-600 text-white font-medium rounded-lg shadow-sm transition-all focus:ring-4 focus:ring-emerald-100 
+                            ${isLoading ? 'opacity-70 cursor-not-allowed' : 'hover:bg-emerald-700 hover:shadow'}`}
+                    >
+                        {isLoading ? (
+                            <span className="flex items-center gap-2">
+                                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>
+                                Menyimpan...
+                            </span>
+                        ) : "Simpan Restoran"}
+                    </button>
+                </div>
+            </form>
+        </div>
       )}
 
-      {/* LIST RESTO */}
+      {/* LIST RESTO SECTION */}
       {places.length === 0 ? (
-        <div className="bg-white border rounded p-6 text-gray-600">
-          Belum ada restoran. Klik <b>Tambah Restoran</b> untuk mulai.
+        <div className="bg-white border-2 border-dashed border-gray-200 rounded-xl p-12 text-center flex flex-col items-center justify-center">
+            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-1">Belum ada restoran</h3>
+            <p className="text-gray-500 max-w-sm">Anda belum mendaftarkan restoran apapun. Klik tombol <span className="font-semibold">Tambah Restoran</span> di atas untuk memulai.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {places.map((place) => (
             <OwnerRestaurantCard
               key={place.id}
@@ -266,4 +236,34 @@ export default function OwnerPage({ user, token, onOpenDetail }) {
       )}
     </div>
   );
+}
+
+// =========================
+// UI HELPERS
+// =========================
+function Field({ label, required, children }) {
+    return (
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-semibold text-gray-700">
+            {label} {required && <span className="text-rose-500">*</span>}
+        </label>
+        {children}
+        <style>{`
+          .form-input {
+              width: 100%;
+              border-radius: 0.5rem;
+              border: 1px solid #d1d5db;
+              padding: 0.625rem 0.75rem;
+              font-size: 0.875rem;
+              transition: all 0.2s;
+              background-color: #fff;
+          }
+          .form-input:focus {
+              outline: none;
+              border-color: #059669; /* emerald-600 */
+              box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
+          }
+        `}</style>
+      </div>
+    );
 }

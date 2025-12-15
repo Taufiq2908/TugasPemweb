@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import myPhoto from '../assets/ohim.jpeg'; // Pastikan path ini sesuai
+import myPhoto from '../assets/ohim.jpg'; // Pastikan path ini sesuai
 import { checkUserLocation } from "../helpers/checkUserLocation"; // Pastikan path ini sesuai
 
 // ================================

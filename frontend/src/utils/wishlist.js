@@ -1,30 +1,23 @@
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export async function toggleWishlist(userId, placeId, isFavorite) {
-  if (!userId) {
+  // 1. AMBIL TOKEN
+  const token = localStorage.getItem("makanKi_token");
+
+  if (!userId || !token) {
     return { success: false, message: "User belum login" };
   }
 
   try {
-    // Hapus dari wishlist
-    if (isFavorite) {
-      const res = await fetch(`${API_BASE}/wishlist`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: userId,
-          place_id: placeId,
-        }),
-      });
+    const url = `${API_BASE}/wishlist`;
+    const method = isFavorite ? "DELETE" : "POST";
 
-      const data = await res.json();
-      return { success: res.ok, data };
-    }
-
-    // Tambahkan ke wishlist
-    const res = await fetch(`${API_BASE}/wishlist`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    const res = await fetch(url, {
+      method: method,
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}` // 🔥 WAJIB ADA TOKEN
+      },
       body: JSON.stringify({
         user_id: userId,
         place_id: placeId,
