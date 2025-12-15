@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from "react";
 
 import { RestaurantCard } from "./components/RestaurantCard";
 import { LoginForm, RegisterForm } from "./components/Auth";
-
+import { VerifyEmail } from "./pages/VerifyEmail";
 // IMPORT DARI FOLDER PAGES
 import { Profile } from "./pages/Profile";
 import { PublicProfile } from "./pages/PublicProfile";
@@ -75,7 +75,13 @@ function App() {
   const [token, setToken] = useState(
     localStorage.getItem("makanKi_token") || ""
   );
-  const [currentPage, setCurrentPage] = useState("home");
+  const [currentPage, setCurrentPage] = useState(() => {
+    const path = window.location.pathname;
+    if (path === "/verify-email") {
+      return "verify-email";
+    }
+    return "home";
+  });
   const [selectedAdminRestaurantId, setSelectedAdminRestaurantId] = useState(null);
   const [selectedOwnerRestaurantId, setSelectedOwnerRestaurantId] = useState(null);
 
@@ -227,6 +233,61 @@ function App() {
       setCityMapUrl("");
     }
   };
+
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      if (!token) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/auth/me`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`, // Kirim token
+            "Content-Type": "application/json"
+          }
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          // Token valid, set data user ke state agar UI berubah jadi Login
+          setUser(data.user);
+        } else {
+          // Token expired atau tidak valid
+          handleLogout(); 
+        }
+      } catch (err) {
+        console.error("Gagal verifikasi token:", err);
+        handleLogout();
+      }
+    };
+
+    fetchUser();
+  }, [token]);
+
+  useEffect(() => {
+    // 1. Cek apakah ada permintaan paksa lokasi (dari VerifyEmail)
+    const askLocationFlag = localStorage.getItem("makanKi_askLocation");
+    
+    // 2. Cek apakah kota sudah dipilih sebelumnya
+    const savedCity = localStorage.getItem("makanKi_selectedCityId");
+
+    if (askLocationFlag === "true") {
+      // Paksa munculkan popup
+      setShowLocationModal(true);
+      // Hapus flag agar tidak muncul terus menerus saat refresh
+      localStorage.removeItem("makanKi_askLocation");
+    } 
+    else if (savedCity) {
+      // Jika sudah ada kota tersimpan, load data kotanya
+      setSelectedCityId(savedCity);
+    } 
+    else {
+      // Jika belum ada kota sama sekali (User baru buka web), munculkan popup
+      setShowLocationModal(true);
+    }
+  }, []);
+
 
   // ==========================
   // USE EFFECT: INIT
@@ -452,17 +513,14 @@ function App() {
   };
 
   // ==========================
-  // SEARCH DI HOMEPAGE
-  // ==========================
-  const handleHomeSearchSubmit = (e) => {
-    e.preventDefault();
-    const q = homeSearchQuery.trim();
-    if (q) {
-      localStorage.setItem("makanKi_homeSearch", q);
-    }
-    setCurrentPage("search");
-    window.scrollTo(0, 0);
-  };
+  // SEARCH DI HOMEPAGE
+  // ==========================
+  const handleHomeSearchSubmit = (e) => {
+    e.preventDefault();
+    // Langsung pindah halaman, state 'homeSearchQuery' akan kita kirim lewat props
+    setCurrentPage("search");
+    window.scrollTo(0, 0);
+  };
 
   // ==========================
   // RENDER MAIN CONTENT
@@ -484,6 +542,10 @@ function App() {
             onSwitchMode={() => setCurrentPage("login")}
           />
         );
+
+      case "verify-email":
+        return <VerifyEmail />;
+
       case "admin":
         if (!user || user.role !== "admin") {
           return null; // ⬅️ JANGAN setState di sini
@@ -604,14 +666,15 @@ function App() {
         );
 
       case "search":
-        return (
-          <SearchPage
-            restaurants={apiRestaurants}
-            favorites={favorites}
-            onToggleFavorite={toggleFavorite}
-            onViewDetail={handleRestaurantClick}
-          />
-        );
+        return (
+          <SearchPage
+            // Kirim query dari home ke search page
+            initialQuery={homeSearchQuery} 
+            favorites={favorites}
+            onToggleFavorite={toggleFavorite}
+            onViewDetail={handleRestaurantClick}
+          />
+        );
 
       case "detail":
         if (!selectedRestaurant) return null;
@@ -1194,7 +1257,7 @@ function App() {
           <div>
             <h4 className="text-white font-medium mb-4">Kota</h4>
             <ul className="space-y-2 text-sm">
-              {cityList.slice(0, 5).map((c) => (
+              {cityList.slice(0, 10).map((c) => (
                 <li key={c.id}>{c.name}</li>
               ))}
             </ul>
@@ -1202,14 +1265,14 @@ function App() {
           <div>
             <h4 className="text-white font-medium mb-4">Tim Pengembang</h4>
             <ul className="space-y-2 text-sm">
-              <li>Muh Ilham Yusal : Frontend & UI/UX</li>
-              <li>Taufiqurrahman Hendra : Backend & Database</li>
-              <li>Giri Kencana Jati : Data & Laporan</li>
+              <li>Muh Ilham Yusal</li>
+              <li>Taufiqurrahman Hendra</li>
+              <li>Giri Kencana Jati</li>
             </ul>
           </div>
         </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 pt-8 border-t border-gray-800 text-center text-sm">
-          © 2027 Makan Ki'
+          © 2025 Makan Ki'
         </div>
       </footer>
     </div>

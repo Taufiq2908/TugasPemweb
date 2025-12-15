@@ -40,3 +40,15 @@
 .read-the-docs {
   color: #888;
 }
+
+/* Hilangkan icon mata bawaan di Edge/Internet Explorer */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+
+/* Hilangkan icon mata bawaan di Chrome/Safari/Opera/Webkit */
+input::-webkit-password-reveal-button {
+  display: none;
+  -webkit-appearance: none;
+}

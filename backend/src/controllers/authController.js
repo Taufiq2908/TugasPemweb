@@ -9,9 +9,9 @@ const {
 } = require("../services/emailService");
 
 // Helper: buat JWT USER
-const createToken = (userId, role = "user") => {
+const createToken = (userId, email, role = "user") => {
   return jwt.sign(
-    { id: userId, role },
+    { id: userId, email, role }, // <--- Masukkan email ke sini!
     process.env.JWT_SECRET,
     { expiresIn: "1d" }
   );
@@ -92,17 +92,15 @@ exports.registerUser = async (req, res) => {
   }
 };
 
-// =========================
-// VERIFY EMAIL + AUTO LOGIN (TIDAK DIUBAH)
-// =========================
 exports.verifyEmail = async (req, res) => {
   try {
     const { token } = req.query;
 
     if (!token) {
-      return res.status(400).json({ message: "Token verifikasi tidak ada." });
+      return res.status(400).json({ message: "Token tidak ditemukan." });
     }
 
+    // 1. Cari user berdasarkan token
     const { data: user, error } = await supabase
       .from("users")
       .select("*")
@@ -110,36 +108,44 @@ exports.verifyEmail = async (req, res) => {
       .single();
 
     if (error || !user) {
-      return res
-        .status(400)
-        .json({ message: "Token verifikasi tidak valid atau sudah digunakan." });
+      return res.status(400).json({ message: "Token tidak valid atau sudah digunakan." });
     }
 
+    // 2. Update User (Hapus token & set verified)
     const { error: updateError } = await supabase
       .from("users")
-      .update({
-        is_verified: true,
-        verification_token: null
+      .update({ 
+        is_verified: true, 
+        verification_token: null 
       })
       .eq("id", user.id);
 
     if (updateError) {
-      console.error(updateError);
-      return res.status(500).json({ error: updateError.message });
+      return res.status(500).json({ message: "Gagal mengupdate status user." });
     }
 
-    const jwtToken = jwt.sign(
-      { id: user.id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    // ==========================================
+    // 🔥 PERBAIKAN UTAMA: GENERATE TOKEN 🔥
+    // ==========================================
+    const jwtToken = createToken(user.id, user.role);
 
-    const redirectUrl = `http://localhost:5173/?token=${jwtToken}`;
-    return res.redirect(redirectUrl);
+    // 3. Kirim Token & Data User ke Frontend
+    return res.status(200).json({
+      message: "Verifikasi berhasil!",
+      token: jwtToken,  // <--- Token ini WAJIB ada
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        avatarUrl: user.avatar_url,
+        is_verified: true
+      }
+    });
 
   } catch (err) {
-    console.error("verifyEmail error:", err);
-    res.status(500).json({ error: err.message });
+    console.error("Verify Error:", err);
+    return res.status(500).json({ message: "Terjadi kesalahan server." });
   }
 };
 
@@ -346,5 +352,25 @@ exports.resetPassword = async (req, res) => {
   } catch (err) {
     console.error("resetPassword error:", err);
     res.status(500).json({ error: err.message });
+  }
+};
+
+exports.getMe = async (req, res) => {
+  try {
+    // req.user sudah diisi oleh authMiddleware
+    const user = req.user; 
+    
+    res.status(200).json({
+      success: true,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        avatarUrl: user.avatar_url // sesuaikan dengan nama kolom db
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Server Error" });
   }
 };

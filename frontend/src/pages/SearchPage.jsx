@@ -1,517 +1,294 @@
 // frontend/src/pages/SearchPage.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { RestaurantCard } from '../components/RestaurantCard';
 
-// Base URL API (ikuti cara di Auth.jsx)
+// Base URL API
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export const SearchPage = ({
+  initialQuery = '', // 1. Terima props initialQuery (default kosong)
   restaurants = [],
   favorites = [],
   onToggleFavorite,
   onViewDetail
 }) => {
-  // --- STATE PENCARIAN & FILTER ---
-  const [searchQuery, setSearchQuery] = useState('');
+  // --- STATE ---
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [categories, setCategories] = useState([]);
+  const [cities, setCities] = useState([]);
+  
+  // Filter States
   const [selectedCategoryId, setSelectedCategoryId] = useState('all');
+  const [selectedCityId, setSelectedCityId] = useState('auto'); // Default auto
   const [minRating, setMinRating] = useState(0);
-  const [sortBy, setSortBy] = useState('relevance'); // relevance | nearest | rating_desc
+  const [sortBy, setSortBy] = useState('relevance');
 
-  const [rawResults, setRawResults] = useState(
-    restaurants.map((r) => ({
-      ...r,
-      rating: r.rating ?? 0,
-      distanceKm: r.distanceKm ?? null
-    }))
-  );
-  const [results, setResults] = useState(rawResults);
-
+  // Results State
+  const [results, setResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [hasSearchedOnce, setHasSearchedOnce] = useState(false);
 
-  // --- STATE MOBILE FILTER UI ---
+  // Mobile UI State
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [isMobileSortOpen, setIsMobileSortOpen] = useState(false);
 
-  // Sinkronisasi jika props restaurants (mock) berubah
+  // --- 1. FETCH DATA UTAMA (Kategori & Kota) ---
   useEffect(() => {
-    const mapped = restaurants.map((r) => ({
-      ...r,
-      rating: r.rating ?? 0,
-      distanceKm: r.distanceKm ?? null
-    }));
-    setRawResults(mapped);
-  }, [restaurants]);
-
-  // --- AMBIL KATEGORI DARI BACKEND (is_display = true) ---
-  useEffect(() => {
-    const fetchCategories = async () => {
+    const fetchData = async () => {
       try {
-        const res = await fetch(`${API_BASE}/categories`);
-        const data = await res.json();
+        // Fetch Categories
+        const catRes = await fetch(`${API_BASE}/categories`);
+        const catData = await catRes.json();
+        if (catRes.ok) {
+          setCategories(catData.filter(c => c.is_display));
+        }
 
-        if (res.ok) {
-          // tampilkan hanya kategori utama (is_display = true)
-          const visibleCategories = data.filter(cat => cat.is_display);
-          setCategories(visibleCategories);
-        } else {
-          console.error("Gagal mengambil kategori:", data.message);
+        // Fetch Cities
+        const cityRes = await fetch(`${API_BASE}/cities`);
+        const cityData = await cityRes.json();
+        if (cityRes.ok) {
+          // Normalisasi ID menjadi string agar aman di select option
+          const normalizedCities = (cityData.data || cityData).map(c => ({
+            ...c,
+            id: String(c.id)
+          }));
+          setCities(normalizedCities);
         }
       } catch (err) {
-        console.error("Error fetch kategori:", err);
+        console.error("Init fetch error:", err);
       }
     };
-
-    fetchCategories();
+    fetchData();
   }, []);
 
+  // --- 2. HELPER: Parsing Foto dari CSV/JSON ---
+  const getCoverImage = (place) => {
+    // 1. Cek jika sudah ada field cover_image_url
+    if (place.cover_image_url) return place.cover_image_url;
 
-  // --- HELPER: KONVERSI price_range string → label Murah/Sedang/Mahal ---
-  const derivePriceRangeLabel = (priceRangeString) => {
-    if (!priceRangeString || typeof priceRangeString !== 'string') return 'Sedang';
-    const nums = priceRangeString.match(/\d+/g);
-    if (!nums || nums.length === 0) return 'Sedang';
-
-    const values = nums
-      .map((n) => parseInt(n, 10))
-      .filter((n) => !Number.isNaN(n));
-
-    if (!values.length) return 'Sedang';
-
-    const avg = values.reduce((a, b) => a + b, 0) / values.length;
-    if (avg < 20000) return 'Murah';
-    if (avg < 50000) return 'Sedang';
-    return 'Mahal';
+    // 2. Cek kolom 'photos'
+    if (place.photos) {
+      // Jika photos adalah Array (JSONB di Supabase)
+      if (Array.isArray(place.photos) && place.photos.length > 0) {
+        return place.photos[0];
+      }
+      
+      // Jika photos adalah String (CSV issue atau Text column)
+      if (typeof place.photos === 'string') {
+        try {
+          // Bersihkan format CSV yang aneh: ["url"] atau "[\"url\"]"
+          let cleanStr = place.photos;
+          // Hapus escape characters berlebih jika ada
+          if (cleanStr.startsWith('"') && cleanStr.endsWith('"')) {
+             cleanStr = cleanStr.slice(1, -1);
+          }
+          cleanStr = cleanStr.replace(/\\"/g, '"'); // Unescape quote
+          
+          const parsed = JSON.parse(cleanStr);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed[0];
+          }
+        } catch (e) {
+          console.warn("Photo parse failed, trying raw string logic", e);
+        }
+      }
+    }
+    // Default Fallback
+    return 'https://images.pexels.com/photos/70497/pexels-photo-70497.jpeg';
   };
 
-  // --- HELPER: PETA DATA BACKEND → SHAPE RestaurantCard ---
-  const mapPlaceToCardData = (place) => {
-    const priceRangeLabel =
-      place.price_range_label || derivePriceRangeLabel(place.price_range);
-
-    const distanceKm =
-      place.distance_km ??
-      place.distanceKm ??
-      null;
-
+  // --- 3. MAPPING DATA ---
+  const mapPlaceToCard = (place) => {
     return {
       id: place.id,
       name: place.name,
-      city: place.cities?.name || place.city_name || 'Tidak diketahui',
+      // Handle relasi cities(name) dari backend
+      city: place.cities?.name || place.city_name || 'Kota tidak diketahui', 
       location: place.address || '',
-      rating: place.rating || 0,
+      rating: place.average_rating || 0,
       reviews: place.total_reviews || 0,
       description: place.description || '',
-      priceRange: priceRangeLabel,
-      coverImage:
-        place.cover_image_url ||
-        place.coverImage ||
-        'https://images.pexels.com/photos/70497/pexels-photo-70497.jpeg',
-      distanceKm,
-      categoryId:
-        place.category_id ??
-        place.categoryId ??
-        place.category?.id ??
-        null,
+      priceRange: place.price_range_label || 'Sedang', // Bisa disesuaikan logikanya
+      coverImage: getCoverImage(place),
+      distanceKm: place.distance_km || null,
+      categoryId: null, // Kita tidak butuh ini lagi untuk filter frontend
       raw: place
     };
   };
 
-  // --- FILTER & SORT DI FRONTEND (berlaku untuk hasil search & chatbot) ---
-  useEffect(() => {
-    let filtered = rawResults;
-
-    // Filter kategori
-    if (selectedCategoryId !== 'all') {
-      filtered = filtered.filter(
-        (p) => String(p.categoryId) === String(selectedCategoryId)
-      );
-    }
-
-    // Filter rating minimal
-    if (minRating > 0) {
-      filtered = filtered.filter((p) => (p.rating || 0) >= minRating);
-    }
-
-    // Sort
-    let sorted = [...filtered];
-    if (sortBy === 'rating_desc') {
-      sorted.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-    } else if (sortBy === 'nearest') {
-      sorted.sort(
-        (a, b) =>
-          (a.distanceKm ?? Number.POSITIVE_INFINITY) -
-          (b.distanceKm ?? Number.POSITIVE_INFINITY)
-      );
-    }
-    // relevance → biarkan urutan bawaan dari API
-
-    setResults(sorted);
-  }, [rawResults, selectedCategoryId, minRating, sortBy]);
-
-  // --- FUNGSI PENCARIAN KE BACKEND (SEARCH / CHATBOT) ---
-  const runSearch = async () => {
+  // --- 4. ENGINE PENCARIAN (Backend Only) ---
+  const runSearch = useCallback(async () => {
     setIsLoading(true);
     setError('');
     setHasSearchedOnce(true);
 
     try {
-      const trimmed = searchQuery.trim();
-      const words = trimmed ? trimmed.split(/\s+/).filter(Boolean) : [];
-      const useChatbot = words.length > 2;
+      const params = new URLSearchParams();
+      const qTrimmed = searchQuery.trim();
+      const userLat = localStorage.getItem('userLat');
+      const userLng = localStorage.getItem('userLng');
+      const userCityId = localStorage.getItem('cityId');
 
-      const lat = localStorage.getItem('userLat');
-      const lng = localStorage.getItem('userLng');
+      // A. Setup Parameter Query
+      if (qTrimmed) params.append('q', qTrimmed);
 
-      let places = [];
-
-      if (useChatbot) {
-        // ============================
-        //  MODE CHATBOT (kalimat panjang)
-        // ============================
-        const body = {
-          message: trimmed
-        };
-
-        if (lat && lng) {
-          body.lat = Number(lat);
-          body.lng = Number(lng);
+      // B. Setup City Logic & Radius
+      if (selectedCityId === 'auto') {
+        if (userCityId) {
+          // Prioritas 1: Auto + Ada ID Kota di LocalStorage -> Filter Kota Ketat
+          params.append('city_id', userCityId);
+        } else if (userLat && userLng) {
+          // Prioritas 2: Auto + Tidak ada ID Kota + Ada LatLon -> Filter Radius (Nearby)
+          // [PERBAIKAN] Tambahkan radius agar tidak menampilkan seluruh dunia
+          params.append('radius', '30'); // Cari dalam radius 30km
+        } else {
+          // Prioritas 3: Tidak ada info sama sekali -> Nanti akan kena validasi 400 backend
         }
+      } else if (selectedCityId !== 'all') {
+        // User pilih kota spesifik
+        params.append('city_id', selectedCityId);
+      }
+      // Jika 'all', kita tidak kirim city_id (Global Search)
 
-        const res = await fetch(`${API_BASE}/api/chatbot`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(data.message || 'Gagal mengambil data dari chatbot.');
-        }
-
-        // Fleksibel terhadap bentuk respons
-        if (Array.isArray(data.places)) places = data.places;
-        else if (Array.isArray(data.data)) places = data.data;
-        else if (Array.isArray(data.results)) places = data.results;
-        else if (Array.isArray(data)) places = data;
-        else {
-          console.warn('Respon chatbot tidak terduga:', data);
-          places = [];
-        }
-      } else {
-        // ============================
-        //  MODE SEARCH BIASA (≤ 2 kata)
-        // ============================
-        const params = new URLSearchParams();
-        if (trimmed) params.append('query', trimmed);
-        if (lat && lng) {
-          params.append('lat', lat);
-          params.append('lng', lng);
-        }
-
-        const chatbotRes = await fetch(`${API_BASE}/api/chatbot`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query, user_city: userCity })
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(data.message || 'Gagal mengambil data dari server.');
-        }
-
-        if (Array.isArray(data.data)) places = data.data;
-        else if (Array.isArray(data)) places = data;
-        else {
-          console.warn('Respon search tidak terduga:', data);
-          places = [];
-        }
+      // C. Setup Location Params
+      if (userLat && userLng) {
+        params.append('lat', userLat);
+        params.append('lon', userLng);
       }
 
-      const mapped = places.map(mapPlaceToCardData);
-      setRawResults(mapped);
+      // D. Setup Filter Lain
+      if (selectedCategoryId !== 'all') {
+        params.append('category_id', selectedCategoryId);
+      }
+      if (minRating > 0) {
+        params.append('rating_min', minRating);
+      }
+      if (sortBy !== 'relevance') {
+        params.append('sort', sortBy);
+      }
+
+      // E. Request
+      const url = `${API_BASE}/search/search?${params.toString()}`;
+      // console.log("Fetching:", url); 
+
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (!res.ok) {
+        // Tangani 400 (Bad Request) dengan pesan yang lebih ramah
+        if (res.status === 400) {
+          throw new Error("Mohon izinkan akses lokasi atau pilih kota terlebih dahulu untuk memulai.");
+        }
+        throw new Error(data.error || "Gagal mengambil data pencarian");
+      }
+
+      // F. Mapping Result
+      const searchResults = (data.data || []).map(mapPlaceToCard);
+      setResults(searchResults);
+
     } catch (err) {
       console.error(err);
-      setError(err.message || 'Terjadi kesalahan koneksi ke server.');
-      setRawResults([]);
+      setError(err.message);
+      setResults([]);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [searchQuery, selectedCategoryId, selectedCityId, minRating, sortBy]);
 
-  // --- HANDLER ---
+  // --- 5. AUTO SEARCH EFFECT ---
+  // Trigger search saat filter berubah, TAPI debounce sedikit
+  useEffect(() => {
+    // Hanya auto search jika user sudah pernah berinteraksi atau membuka halaman
+    const timer = setTimeout(() => {
+      runSearch();
+    }, 500); // Debounce 500ms
+    return () => clearTimeout(timer);
+  }, [selectedCategoryId, selectedCityId, minRating, sortBy, runSearch]); 
+
+  // --- HANDLERS ---
   const handleSubmit = (e) => {
     e.preventDefault();
     runSearch();
   };
 
-  const handleCategoryChange = (value) => {
-    setSelectedCategoryId(value);
-  };
+  const userCityName = localStorage.getItem('cityName') || 'Lokasi Saya';
 
-  const handleMinRatingChange = (e) => {
-    setMinRating(Number(e.target.value));
-  };
-
-  const handleSortChange = (e) => {
-    setSortBy(e.target.value);
-  };
-
-  const placesToRender = results;
-
-  // ========================
-  // RENDER
-  // ========================
   return (
-    <div className="py-8">
-      <div className="max-w-7xl mx-auto">
-        {/* TITLE + DESKRIPSI */}
+    <div className="py-8 min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        {/* HEADER */}
         <div className="mb-6">
-          <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900">
-            Pencarian Kuliner
-          </h1>
-          <p className="text-gray-600 mt-2 text-sm md:text-base">
-            Temukan makanan terbaik dengan filter lengkap sesuai selera Anda.
-          </p>
+          <h1 className="text-3xl font-extrabold text-gray-900">Pencarian Kuliner</h1>
+          <p className="text-gray-600 mt-2">Temukan makanan favoritmu di {selectedCityId === 'auto' ? userCityName : 'kota pilihan'}.</p>
         </div>
 
-        {/* FORM SEARCH */}
-        <form onSubmit={handleSubmit} className="mb-4">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <span className="absolute inset-y-0 left-3 flex items-center text-gray-400">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
-              </span>
-              <input
-                type="text"
-                placeholder="Cari nama restoran, menu, atau kategori..."
-                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 text-sm md:text-base"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
+        {/* SEARCH BAR */}
+        <form onSubmit={handleSubmit} className="mb-6">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+              placeholder="Mau makan apa hari ini? (Contoh: Coto, Bakso, Seafood)"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
             <button
               type="submit"
-              className="px-6 py-3 rounded-xl bg-rose-600 text-white font-semibold shadow-md hover:bg-rose-700 transition-colors"
+              className="px-6 py-3 bg-rose-600 text-white font-bold rounded-xl hover:bg-rose-700 transition"
             >
               Cari
             </button>
           </div>
         </form>
 
-        {/* MOBILE: TOMBOL FILTER & URUTKAN (TETAP SEPERTI VERSI LAMA) */}
-        <div className="flex md:hidden gap-3 mb-4">
-          <button
-            type="button"
-            onClick={() => setIsMobileFilterOpen(true)}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white text-sm font-medium text-gray-700 shadow-sm"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M6 10h12M10 14h8M14 18h4" />
-            </svg>
+        {/* MOBILE CONTROLS */}
+        <div className="md:hidden flex gap-2 mb-4">
+          <button onClick={() => setIsMobileFilterOpen(true)} className="flex-1 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium shadow-sm hover:bg-gray-50">
             Filter
           </button>
-          <button
-            type="button"
-            onClick={() => setIsMobileSortOpen(true)}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white text-sm font-medium text-gray-700 shadow-sm"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h18M6 8h12M9 12h6M12 16h3" />
-            </svg>
+          <button onClick={() => setIsMobileSortOpen(true)} className="flex-1 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium shadow-sm hover:bg-gray-50">
             Urutkan
           </button>
         </div>
 
-        {/* MOBILE SHEET: FILTER (PAKAI SELECT SEPERTI VERSI LAMA) */}
-        {isMobileFilterOpen && (
-          <div className="fixed inset-0 z-40 bg-black/40 flex items-end md:hidden">
-            <div className="w-full bg-white rounded-t-2xl p-4 max-h-[70vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="font-semibold text-gray-800">Filter</h3>
-                <button
-                  onClick={() => setIsMobileFilterOpen(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  ✕
-                </button>
-              </div>
-
-              {/* Kategori */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Kategori
-                </label>
-                <select
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-rose-500"
-                  value={selectedCategoryId}
-                  onChange={(e) => handleCategoryChange(e.target.value)}
-                >
-                  <option value="all">Semua</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Rating Minimal */}
-              <div className="mb-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Rating minimal
-                </label>
-                <select
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-rose-500"
-                  value={minRating}
-                  onChange={(e) => setMinRating(Number(e.target.value))}
-                >
-                  <option value={0}>Semua</option>
-                  <option value={3}>3.0+</option>
-                  <option value={4}>4.0+</option>
-                  <option value={4.5}>4.5+</option>
-                </select>
-              </div>
-
-              <div className="mt-4 flex gap-3">
-                <button
-                  onClick={() => {
-                    setIsMobileFilterOpen(false);
-                  }}
-                  className="flex-1 py-2.5 rounded-xl bg-rose-600 text-white font-semibold text-sm"
-                >
-                  Terapkan
-                </button>
-                <button
-                  onClick={() => setIsMobileFilterOpen(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-gray-300 text-sm text-gray-700"
-                >
-                  Batal
-                </button>
-              </div>
+        <div className="flex flex-col md:flex-row gap-6">
+          {/* SIDEBAR FILTER (DESKTOP) */}
+          <aside className="hidden md:block w-64 space-y-6">
+            
+            {/* Filter Kota */}
+            <div className="bg-white p-4 rounded-xl border shadow-sm">
+              <h3 className="font-semibold mb-3">📍 Kota</h3>
+              <select 
+                className="w-full p-2 border rounded-lg text-sm bg-white"
+                value={selectedCityId}
+                onChange={(e) => setSelectedCityId(e.target.value)}
+              >
+                <option value="auto">📍 Otomatis ({userCityName})</option>
+                <option value="all">🌐 Semua Kota</option>
+                <option disabled>──────────</option>
+                {cities.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
             </div>
-          </div>
-        )}
 
-        {/* MOBILE SHEET: SORT (TETAP) */}
-        {isMobileSortOpen && (
-          <div className="fixed inset-0 z-40 bg-black/40 flex items-end md:hidden">
-            <div className="w-full bg-white rounded-t-2xl p-4">
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="font-semibold text-gray-800">Urutkan</h3>
+            {/* Filter Kategori */}
+            <div className="bg-white p-4 rounded-xl border shadow-sm">
+              <h3 className="font-semibold mb-3">🍱 Kategori</h3>
+              <div className="space-y-1 max-h-60 overflow-y-auto pr-2">
                 <button
-                  onClick={() => setIsMobileSortOpen(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="radio"
-                    name="sort-mobile"
-                    value="relevance"
-                    checked={sortBy === 'relevance'}
-                    onChange={handleSortChange}
-                  />
-                  <span>Paling sesuai</span>
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="radio"
-                    name="sort-mobile"
-                    value="nearest"
-                    checked={sortBy === 'nearest'}
-                    onChange={handleSortChange}
-                  />
-                  <span>Terdekat</span>
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="radio"
-                    name="sort-mobile"
-                    value="rating_desc"
-                    checked={sortBy === 'rating_desc'}
-                    onChange={handleSortChange}
-                  />
-                  <span>Rating tertinggi</span>
-                </label>
-              </div>
-
-              <div className="mt-4 flex gap-3">
-                <button
-                  onClick={() => {
-                    setIsMobileSortOpen(false);
-                  }}
-                  className="flex-1 py-2.5 rounded-xl bg-rose-600 text-white font-semibold text-sm"
-                >
-                  Terapkan
-                </button>
-                <button
-                  onClick={() => setIsMobileSortOpen(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-gray-300 text-sm text-gray-700"
-                >
-                  Batal
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* DESKTOP: LAYOUT DUA KOLOM (SIDEBAR + KONTEN) */}
-        <div className="mt-4 md:flex md:gap-6">
-          {/* SIDEBAR (DESKTOP ONLY) */}
-          <aside className="hidden md:block md:w-72 space-y-6">
-            {/* Kategori */}
-            <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-              <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
-                <span>🍱</span> Kategori
-              </h3>
-              <div className="space-y-2 max-h-56 overflow-y-auto">
-                <button
-                  type="button"
-                  onClick={() => handleCategoryChange('all')}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm ${
-                    selectedCategoryId === 'all'
-                      ? 'bg-rose-50 text-rose-700 font-semibold'
-                      : 'text-gray-700 hover:bg-gray-50'
-                  }`}
+                  onClick={() => setSelectedCategoryId('all')}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${selectedCategoryId === 'all' ? 'bg-rose-50 text-rose-700 font-bold' : 'text-gray-600 hover:bg-gray-50'}`}
                 >
                   Semua
                 </button>
-                {categories.map((cat) => (
+                {categories.map(cat => (
                   <button
                     key={cat.id}
-                    type="button"
-                    onClick={() => handleCategoryChange(cat.id)}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm ${
-                      String(selectedCategoryId) === String(cat.id)
-                        ? 'bg-rose-50 text-rose-700 font-semibold'
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }`}
+                    onClick={() => setSelectedCategoryId(String(cat.id))}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${selectedCategoryId === String(cat.id) ? 'bg-rose-50 text-rose-700 font-bold' : 'text-gray-600 hover:bg-gray-50'}`}
                   >
                     {cat.name}
                   </button>
@@ -519,94 +296,200 @@ export const SearchPage = ({
               </div>
             </div>
 
-            {/* Rating */}
-            <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-              <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
-                <span>⭐</span> Rating
-              </h3>
-              <div className="space-y-4">
-                <input
-                  type="range"
-                  min="0"
-                  max="5"
-                  step="0.5"
-                  value={minRating}
-                  onChange={handleMinRatingChange}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-rose-600"
-                />
-                <div className="flex justify-between items-center bg-gray-50 p-2 rounded-lg">
-                  <span className="text-xs text-gray-500">Minimal:</span>
-                  <span className="text-rose-600 font-semibold flex items-center gap-1">
-                    {minRating.toFixed(1)}
-                    <svg className="w-3 h-3 fill-current" viewBox="0 0 20 20">
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                  </span>
-                </div>
+            {/* Filter Rating */}
+            <div className="bg-white p-4 rounded-xl border shadow-sm">
+              <h3 className="font-semibold mb-3">⭐ Rating Minimal</h3>
+              <input 
+                type="range" min="0" max="5" step="0.5" 
+                value={minRating}
+                onChange={(e) => setMinRating(e.target.value)}
+                className="w-full accent-rose-600 cursor-pointer"
+              />
+              <div className="flex justify-between text-sm mt-2">
+                <span className="text-gray-500">0</span>
+                <span className="font-bold text-rose-600">{minRating} +</span>
+                <span className="text-gray-500">5</span>
               </div>
             </div>
           </aside>
 
-          {/* KONTEN UTAMA */}
-          <section className="flex-1">
-            {/* Desktop: bar jumlah & sort */}
-            <div className="hidden md:flex flex-col sm:flex-row justify-between items-center mb-4 bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-              <span className="text-sm text-gray-600 mb-2 sm:mb-0">
-                Menampilkan <strong>{placesToRender.length}</strong> tempat kuliner
-              </span>
-
+          {/* MAIN CONTENT */}
+          <main className="flex-1">
+            {/* Desktop Sort Bar */}
+            <div className="hidden md:flex justify-between items-center mb-4 bg-white p-3 rounded-xl border shadow-sm">
+              <span className="text-sm text-gray-500">Menampilkan <b>{results.length}</b> hasil</span>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-700 whitespace-nowrap">Urutkan</span>
-                <select
-                  className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-rose-500"
+                <span className="text-sm font-medium">Urutkan:</span>
+                <select 
+                  className="border-none text-sm font-medium focus:ring-0 cursor-pointer bg-transparent"
                   value={sortBy}
-                  onChange={handleSortChange}
+                  onChange={(e) => setSortBy(e.target.value)}
                 >
-                  <option value="relevance">Paling sesuai</option>
+                  <option value="relevance">Paling Relevan</option>
                   <option value="nearest">Terdekat</option>
-                  <option value="rating_desc">Rating tertinggi</option>
+                  <option value="rating_desc">Rating Tertinggi</option>
                 </select>
               </div>
             </div>
 
-            {/* STATUS / ERROR */}
+            {/* ERROR MESSAGE */}
             {error && (
-              <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-md text-sm">
-                {error}
+              <div className="bg-red-50 text-red-600 p-4 rounded-xl mb-4 text-sm border border-red-100 flex items-center gap-2">
+                <svg className="w-5 h-5 min-w-[1.25rem]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <span>{error}</span>
               </div>
             )}
 
-            {/* HASIL PENCARIAN */}
-            <div className="mt-4">
-              {isLoading ? (
-                <div className="py-10 text-center text-gray-500 text-sm">
-                  Sedang mencari kuliner terbaik untukmu...
-                </div>
-              ) : placesToRender.length === 0 && hasSearchedOnce ? (
-                <div className="py-10 text-center">
-                  <div className="text-5xl mb-2">🍜</div>
-                  <h3 className="text-lg font-semibold mb-1">Belum ada hasil</h3>
-                  <p className="text-gray-500 text-sm max-w-md mx-auto">
-                    Coba ganti kata kunci atau kurangi filter agar hasilnya lebih luas.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {placesToRender.map((place) => (
-                    <RestaurantCard
-                      key={place.id}
-                      data={place}
-                      isFavorite={favorites.includes(place.id)}
-                      onToggleFavorite={onToggleFavorite}
-                      onClick={() => onViewDetail(place)}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          </section>
+            {/* LOADING STATE */}
+            {isLoading && (
+              <div className="py-12 text-center text-gray-500">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-rose-600 mx-auto mb-2"></div>
+                Sedang mencari kuliner enak...
+              </div>
+            )}
+
+            {/* EMPTY STATE */}
+            {!isLoading && !error && results.length === 0 && hasSearchedOnce && (
+              <div className="py-12 text-center bg-white rounded-xl border border-dashed border-gray-300">
+                <div className="text-4xl mb-2">🍜</div>
+                <h3 className="font-semibold text-gray-900">Belum ada hasil</h3>
+                <p className="text-sm text-gray-500 mt-1">Coba ganti kata kunci atau kurangi filter.</p>
+              </div>
+            )}
+
+            {/* GRID RESULTS */}
+            {!isLoading && results.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {results.map(place => (
+                  <RestaurantCard
+                    key={place.id}
+                    data={place}
+                    isFavorite={favorites.includes(place.id)}
+                    onToggleFavorite={onToggleFavorite}
+                    onClick={() => onViewDetail(place)}
+                  />
+                ))}
+              </div>
+            )}
+          </main>
         </div>
       </div>
+
+      {/* --- MOBILE MODALS --- */}
+
+      {/* 1. MOBILE FILTER MODAL */}
+      {isMobileFilterOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end">
+          <div className="bg-white w-full rounded-t-2xl p-6 max-h-[85vh] overflow-y-auto animate-slide-up">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="font-bold text-lg text-gray-900">Filter Pencarian</h3>
+              <button 
+                onClick={() => setIsMobileFilterOpen(false)} 
+                className="p-2 bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="space-y-6">
+              {/* Kota */}
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">📍 Kota</label>
+                <select className="w-full p-3 border border-gray-300 rounded-xl bg-white" value={selectedCityId} onChange={(e) => setSelectedCityId(e.target.value)}>
+                  <option value="auto">📍 Otomatis (Lokasi Saya)</option>
+                  <option value="all">🌐 Semua Kota</option>
+                  <option disabled>──────────</option>
+                  {cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+
+              {/* Kategori */}
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">🍱 Kategori</label>
+                <select className="w-full p-3 border border-gray-300 rounded-xl bg-white" value={selectedCategoryId} onChange={(e) => setSelectedCategoryId(e.target.value)}>
+                  <option value="all">Semua Kategori</option>
+                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+
+              {/* [FIX] Rating Filter di Mobile */}
+              <div>
+                <div className="flex justify-between mb-2">
+                  <label className="text-sm font-bold text-gray-700">⭐ Rating Minimal</label>
+                  <span className="text-sm font-bold text-rose-600">{minRating} +</span>
+                </div>
+                <input 
+                  type="range" min="0" max="5" step="0.5" 
+                  value={minRating}
+                  onChange={(e) => setMinRating(e.target.value)}
+                  className="w-full accent-rose-600 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                />
+                <div className="flex justify-between text-xs text-gray-400 mt-1">
+                  <span>0</span><span>5</span>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => setIsMobileFilterOpen(false)} 
+                className="w-full py-3.5 bg-rose-600 text-white rounded-xl font-bold shadow-lg shadow-rose-200 active:scale-95 transition-transform"
+              >
+                Terapkan Filter
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. [FIX] MOBILE SORT MODAL (Sekarang sudah ada!) */}
+      {isMobileSortOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end">
+          <div className="bg-white w-full rounded-t-2xl p-6 animate-slide-up">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="font-bold text-lg text-gray-900">Urutkan Berdasarkan</h3>
+              <button 
+                onClick={() => setIsMobileSortOpen(false)} 
+                className="p-2 bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {[
+                { val: 'relevance', label: '✨ Paling Relevan' },
+                { val: 'nearest', label: '📍 Terdekat dari Saya' },
+                { val: 'rating_desc', label: '⭐ Rating Tertinggi' }
+              ].map((opt) => (
+                <label 
+                  key={opt.val} 
+                  className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all ${sortBy === opt.val ? 'border-rose-500 bg-rose-50' : 'border-gray-200'}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={`text-sm font-medium ${sortBy === opt.val ? 'text-rose-700' : 'text-gray-700'}`}>
+                      {opt.label}
+                    </span>
+                  </div>
+                  <input 
+                    type="radio" 
+                    name="sortMobile" 
+                    value={opt.val} 
+                    checked={sortBy === opt.val} 
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="w-5 h-5 text-rose-600 focus:ring-rose-500 border-gray-300"
+                  />
+                </label>
+              ))}
+            </div>
+
+            <button 
+              onClick={() => setIsMobileSortOpen(false)} 
+              className="w-full py-3.5 bg-rose-600 text-white rounded-xl font-bold shadow-lg shadow-rose-200 mt-6 active:scale-95 transition-transform"
+            >
+              Terapkan
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

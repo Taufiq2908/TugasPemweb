@@ -19,16 +19,28 @@ exports.protect = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     // =========================
-    // ✅ ADMIN (TIDAK PERLU ADA DI DB)
+    // 🔍 DEBUGGING (Cek di Terminal)
     // =========================
-    if (
-      decoded.role === "admin" ||
-      decoded.email === process.env.ADMIN_EMAIL
-    ) {
+    // console.log("Decoded Token:", decoded);
+    // console.log("Env Admin Email:", process.env.ADMIN_EMAIL);
+
+    // =========================
+    // ✅ ADMIN (LOGIKA KETAT)
+    // =========================
+    // Syarat jadi admin via email:
+    // 1. Email di token TIDAK BOLEH kosong
+    // 2. Email di ENV TIDAK BOLEH kosong
+    // 3. Keduanya harus sama persis
+    const isAdminEmail = 
+        decoded.email && 
+        process.env.ADMIN_EMAIL && 
+        (decoded.email === process.env.ADMIN_EMAIL);
+
+    if (decoded.role === "admin" || isAdminEmail) {
       req.user = {
         id: "admin",
         name: "Admin",
-        email: decoded.email || "admin",
+        email: decoded.email || process.env.ADMIN_EMAIL,
         role: "admin"
       };
       return next();
@@ -56,14 +68,12 @@ exports.protect = async (req, res, next) => {
       name: user.name,
       email: user.email,
       isVerified: user.is_verified,
-      role: user.role // user | owner
+      role: user.role
     };
 
     return next();
   } catch (error) {
     console.error("Auth error:", error.message);
-    return res
-      .status(401)
-      .json({ message: "Token tidak valid atau kadaluarsa." });
+    return res.status(401).json({ message: "Token tidak valid atau kadaluarsa." });
   }
 };

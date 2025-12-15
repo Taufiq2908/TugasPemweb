@@ -10,7 +10,11 @@ const transporter = nodemailer.createTransport({
 
 // EMAIL VERIFIKASI
 async function sendVerificationEmail(email, token) {
-  const verifyUrl = `${process.env.BASE_URL}/auth/verify?token=${token}`;
+  // 1. Pastikan mengarah ke URL FRONTEND (misal: http://localhost:5173 atau domain deploy)
+  const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+  
+  // 2. Arahkan ke route khusus, misal /verify-email
+  const verifyUrl = `${frontendUrl}/verify-email?token=${token}`;
 
   const html = `
     <div style="font-family: 'Arial', sans-serif; background:#f5f7fa; padding:30px;">
