@@ -18,9 +18,6 @@ import OwnerRestaurantDetail from "./pages/OwnerRestaurantDetail";
 import HomeRestaurantMap from "./components/HomeRestaurantMap";
 import RegisterOwner from "./pages/RegisterOwner";
 
-
-
-
 import { CITY_MAP } from "./constant/cities";
 
 import "./App.css";
@@ -114,7 +111,7 @@ function App() {
   const [homeSearchQuery, setHomeSearchQuery] = useState("");
 
   // wishlist
-  const [favorites, setFavorites] = useState([]);
+  const [favorites, setFavorites] = useState([]); // Array ID: [1, 5, 12]
 
 
   // ==========================
@@ -378,15 +375,52 @@ function App() {
   }, [apiRestaurants, activeCategoryKey]);
 
   // ==========================
-  // WISHLIST / FAVORITE (GLOBAL)
+  // 🔥 FIX: WISHLIST (FETCH DATA SAAT LOGIN)
   // ==========================
+  
+  // 1. Fetch Wishlist dari Server saat User Login
+  useEffect(() => {
+    if (!token || !user) {
+      setFavorites([]); // Kosongkan jika logout
+      return;
+    }
+
+    const fetchWishlist = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/wishlist/${user.id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        
+        if (res.ok && Array.isArray(data)) {
+          // Mapping data backend [{place_id: 1}, {place_id: 5}] -> [1, 5]
+          // Sesuaikan dengan struktur respons API Anda
+          const ids = data.map(item => item.place_id || item.id);
+          setFavorites(ids);
+        }
+      } catch (err) {
+        console.error("Gagal load wishlist:", err);
+      }
+    };
+
+    fetchWishlist();
+  }, [token, user]); // Jalankan ulang saat token/user berubah
+
+  // 2. Logic Toggle Wishlist
   const toggleFavorite = async (placeId) => {
     if (!user || !token) {
       alert("Silakan login untuk menambah ke wishlist.");
+      setCurrentPage("login");
       return;
     }
 
     const isFav = favorites.includes(placeId);
+    
+    // OPTIMISTIC UPDATE: Ubah tampilan duluan
+    setFavorites((prev) =>
+      isFav ? prev.filter((id) => id !== placeId) : [...prev, placeId]
+    );
+
     const method = isFav ? "DELETE" : "POST";
 
     try {
@@ -397,21 +431,21 @@ function App() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          user_id: user.id,   // sekarang aman, karena user pasti ada
+          user_id: user.id,
           place_id: placeId,
         }),
       });
 
       if (!res.ok) {
-        console.error("Gagal mengubah wishlist di server.");
-        return;
+        throw new Error("Gagal update server");
       }
-
-      setFavorites((prev) =>
-        isFav ? prev.filter((id) => id !== placeId) : [...prev, placeId]
-      );
     } catch (err) {
       console.error("Error toggle wishlist:", err);
+      // REVERT: Jika gagal, kembalikan state
+      setFavorites((prev) =>
+        isFav ? [...prev, placeId] : prev.filter((id) => id !== placeId)
+      );
+      alert("Gagal update wishlist. Cek koneksi.");
     }
   };
 
@@ -451,6 +485,7 @@ function App() {
   const handleLogout = () => {
     setUser(null);
     setToken("");
+    setFavorites([]); // Clear wishlist
 
     // Hapus token
     localStorage.removeItem("makanKi_token");
@@ -513,14 +548,14 @@ function App() {
   };
 
   // ==========================
-  // SEARCH DI HOMEPAGE
-  // ==========================
-  const handleHomeSearchSubmit = (e) => {
-    e.preventDefault();
+  // SEARCH DI HOMEPAGE
+  // ==========================
+  const handleHomeSearchSubmit = (e) => {
+    e.preventDefault();
     // Langsung pindah halaman, state 'homeSearchQuery' akan kita kirim lewat props
-    setCurrentPage("search");
-    window.scrollTo(0, 0);
-  };
+    setCurrentPage("search");
+    window.scrollTo(0, 0);
+  };
 
   // ==========================
   // RENDER MAIN CONTENT
@@ -667,15 +702,15 @@ function App() {
         );
 
       case "search":
-        return (
-          <SearchPage
+        return (
+          <SearchPage
             // Kirim query dari home ke search page
             initialQuery={homeSearchQuery} 
-            favorites={favorites}
-            onToggleFavorite={toggleFavorite}
-            onViewDetail={handleRestaurantClick}
-          />
-        );
+            favorites={favorites}
+            onToggleFavorite={toggleFavorite}
+            onViewDetail={handleRestaurantClick}
+          />
+        );
 
       case "detail":
         if (!selectedRestaurant) return null;
@@ -858,6 +893,7 @@ function App() {
                     <RestaurantCard
                       key={restaurant.id}
                       data={restaurant}
+                      // 🔥 Pastikan ini dikirim ke Card
                       isFavorite={favorites.includes(restaurant.id)}
                       onToggleFavorite={toggleFavorite}
                       onClick={handleRestaurantClick}
